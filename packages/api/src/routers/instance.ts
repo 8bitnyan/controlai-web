@@ -3,6 +3,7 @@ import { router, orgProcedure, ownerAdminProcedure } from '../trpc';
 import { writeAudit } from '../lib/audit-writer';
 import { encryptToken, decryptToken } from '../lib/crypto';
 import { checkDaemonHealth, DaemonError } from '../lib/daemon-client';
+import { z } from 'zod';
 import {
   ListInstancesSchema,
   RegisterInstanceSchema,
@@ -12,6 +13,30 @@ import {
 } from '@controlai-web/shared-types';
 
 export const instanceRouter = router({
+  /**
+   * Get a single instance by id. Token is NOT returned.
+   */
+  get: orgProcedure
+    .input(z.object({ orgId: z.string().cuid(), instanceId: z.string().cuid() }))
+    .query(async ({ ctx, input }) => {
+      const instance = await ctx.prisma.controlaiInstance.findFirst({
+        where: { id: input.instanceId, orgId: ctx.orgId! },
+        select: {
+          id: true,
+          name: true,
+          baseURL: true,
+          status: true,
+          lastSeenAt: true,
+          version: true,
+          capacityUsedMB: true,
+          capacityAllowedMB: true,
+          createdAt: true,
+        },
+      });
+      if (!instance) throw new TRPCError({ code: 'NOT_FOUND' });
+      return instance;
+    }),
+
   /**
    * List instances in org. Token is NOT returned.
    */

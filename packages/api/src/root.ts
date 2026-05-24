@@ -5,6 +5,11 @@ import { siteGroupRouter } from './routers/siteGroup';
 import { siteRouter } from './routers/site';
 import { instanceRouter } from './routers/instance';
 import { auditRouter } from './routers/audit';
+import { nodeConfigRouter } from './routers/nodeConfig';
+import { applyRouter } from './routers/apply';
+import { streamRouter } from './routers/stream';
+import { telemetryRouter } from './routers/telemetry';
+import { dashboardRouter } from './routers/dashboard';
 
 export const appRouter = router({
   org: orgRouter,
@@ -13,6 +18,11 @@ export const appRouter = router({
   site: siteRouter,
   instance: instanceRouter,
   audit: auditRouter,
+  nodeConfig: nodeConfigRouter,
+  provision: applyRouter,
+  stream: streamRouter,
+  telemetry: telemetryRouter,
+  dashboard: dashboardRouter,
 });
 
 export type AppRouter = typeof appRouter;

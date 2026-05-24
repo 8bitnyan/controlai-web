@@ -1,0 +1,27 @@
+app = "controlai-mqtt-bridge"
+primary_region = "nrt"
+
+[build]
+  dockerfile = "../../Dockerfile"
+  build_target = "runner"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 8080
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type = "requests"
+    hard_limit = 250
+    soft_limit = 200
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

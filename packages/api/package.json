@@ -20,6 +20,7 @@
     "@controlai-web/shared-types": "workspace:*",
     "@trpc/server": "^11.0.0",
     "better-auth": "^1.6.0",
+    "jose": "^6.2.3",
     "zod": "^3.23.8"
   },
   "devDependencies": {

@@ -192,8 +192,11 @@ model SiteGroup {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  sites   Site[]
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sites       Site[]
+  nodeConfigs NodeConfig[]
+  dashboard   Dashboard?
+  applyRuns   ApplyRun[]
 
   @@index([projectId])
 }
@@ -210,6 +213,8 @@ model Site {
   retentionPeriod   String? // '1m' | '1h' | '1d' | '7d' | '30d'
   controlaiTenantId String? // null until Apply provisions the daemon tenant
   controlaiSiteId   String? // null until Apply provisions the daemon site
+  mqttCert          String? // PEM client cert issued by Apply issueCert op
+  mqttKey           String? // PEM private key (stored encrypted in practice)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -239,24 +244,46 @@ model AuditLog {
   @@index([action])
 }
 
-// ─── Placeholders for pipeline-ux ─────────────────────────────────────────────
-
-// Dashboard and NodeConfig models are stubs used by add-controlai-web-pipeline-ux
-model Dashboard {
-  id        String   @id @default(cuid())
-  orgId     String
-  projectId String?
-  name      String
-  config    Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
+// ─── Pipeline-UX models ────────────────────────────────────────────────────────
 
 model NodeConfig {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   siteGroupId String
-  config      Json     @default("{}")
-  version     Int      @default(1)
+  version     Int       @default(1)
+  nodes       Json      @default("[]") // @xyflow Node[]
+  edges       Json      @default("[]") // @xyflow Edge[]
+  isActive    Boolean   @default(false)
+  appliedAt   DateTime?
+  appliedHash String?   // SHA256 of plan ops at apply time
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  siteGroup SiteGroup @relation(fields: [siteGroupId], references: [id], onDelete: Cascade)
+
+  @@index([siteGroupId])
+}
+
+model Dashboard {
+  id          String   @id @default(cuid())
+  siteGroupId String   @unique
+  layout      Json     @default("[]") // react-grid-layout Layout[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  siteGroup SiteGroup @relation(fields: [siteGroupId], references: [id], onDelete: Cascade)
+}
+
+model ApplyRun {
+  id          String   @id @default(cuid())
+  siteGroupId String
+  planHash    String
+  success     Boolean
+  opCount     Int
+  failedAt    Int?     // 0-based index of the first failed op, null if all succeeded
+  resultJson  Json     @default("{}") // full OpResult[]
+  createdAt   DateTime @default(now())
+
+  siteGroup SiteGroup @relation(fields: [siteGroupId], references: [id], onDelete: Cascade)
+
+  @@index([siteGroupId])
 }
