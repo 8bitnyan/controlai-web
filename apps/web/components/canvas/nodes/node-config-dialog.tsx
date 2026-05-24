@@ -289,7 +289,7 @@ function MonitoringConfigForm({
   );
 }
 
-// ─── Helper components ──────────────────────────────────────��──────────────────
+// ─── Helper components ──────────────────────────────────────────────────────────
 
 function Field({
   label,

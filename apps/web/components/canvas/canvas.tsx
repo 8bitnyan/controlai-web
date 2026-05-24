@@ -134,7 +134,7 @@ export function Canvas({ orgId, projectId: _projectId, siteGroupId, siteId }: Ca
         const targetNode = nodes.find((n) => n.id === connection.target);
         if (sourceNode && targetNode) {
           toast.error(
-            `Cannot connect ${sourceNode.type ?? '?'} ��� ${targetNode.type ?? '?'}`,
+            `Cannot connect ${sourceNode.type ?? '?'} → ${targetNode.type ?? '?'}`,
           );
         }
       }
