@@ -6,8 +6,7 @@ import { prisma } from '@controlai-web/db';
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
-    console.error(`${name} is required`);
-    process.exit(1);
+    throw new Error(`${name} is required`);
   }
   return value;
 }

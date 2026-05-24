@@ -21,6 +21,7 @@
     "@neondatabase/serverless": "^0.10.4",
     "@prisma/adapter-neon": "^5.22.0",
     "@prisma/client": "^5.22.0",
+    "better-auth": "^1.6.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {

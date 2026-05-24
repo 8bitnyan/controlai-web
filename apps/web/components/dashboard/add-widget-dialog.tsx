@@ -33,6 +33,11 @@ const WIDGET_META: Record<WidgetType, { label: string; description: string; icon
     description: 'Daemon instance capacity utilization gauge',
     icon: '🌡️',
   },
+  'sensor-io-stream': {
+    label: 'Sensor I/O Stream',
+    description: 'Live side-by-side view of simulator outbound and broker inbound messages',
+    icon: '📡',
+  },
 };
 
 interface AddWidgetDialogProps {

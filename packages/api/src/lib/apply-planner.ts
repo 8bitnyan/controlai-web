@@ -81,8 +81,13 @@ export function synthesizePlan(
   const ingestNodes = nodes.filter((n) => n.type === 'ingest');
   const timescaleNodes = nodes.filter((n) => n.type === 'timescaledb');
 
-  const tenantId = existingTenantId ?? null;
+  // Prefer the project-pinned tenant id, then fall back to the first tenant
+  // the daemon reports. Either resolves the :tenantId placeholder for ops that
+  // skip createTenant.
+  const resolvedTenantId =
+    existingTenantId ?? daemonState.tenants[0]?.id ?? null;
   const hasDaemonTenant = daemonState.tenants.length > 0;
+  const tenantPathSeg = resolvedTenantId ?? ':tenantId';
 
   // Step 1: For each Broker node — if no daemon site exists, add createTenant + createSite
   for (const broker of brokerNodes) {
@@ -103,7 +108,7 @@ export function synthesizePlan(
             'Create daemon tenant',
             '/v1/tenants',
             'POST',
-            { name: 'default' },
+            { slug: 'default' },
             broker.id,
           ),
         );
@@ -124,16 +129,25 @@ export function synthesizePlan(
         | undefined;
       const direction = ingestData?.direction ?? 'uni';
 
+      // Derive a deterministic site slug from the broker node id.
+      // Daemon constraints: ^[a-z][a-z0-9-]{0,40}$
+      const siteSlug = ('s' + broker.id.toLowerCase().replace(/[^a-z0-9-]+/g, '-'))
+        .replace(/-+/g, '-')
+        .replace(/-+$/g, '')
+        .slice(0, 41);
+
       ops.push(
         makeOp(
           'createSite',
           `Create daemon site (broker: ${kind}, throughput: ${throughput})`,
-          `/v1/tenants/:tenantId/sites`,
+          `/v1/tenants/${tenantPathSeg}/sites`,
           'POST',
           {
-            broker: { kind },
-            ingest: { direction },
+            slug: siteSlug,
+            broker_kind: kind,
             throughput,
+            direction,
+            payload_codec: 'cbor',
           },
           broker.id,
         ),
@@ -143,9 +157,9 @@ export function synthesizePlan(
         makeOp(
           'issueCert',
           'Issue mTLS client certificate for mqtt-bridge',
-          `/v1/tenants/:tenantId/sites/:siteId/pki/certs`,
+          `/v1/tenants/${tenantPathSeg}/sites/:siteId/pki/certs`,
           'POST',
-          {},
+          { gateway: 'mqtt-bridge' },
           broker.id,
         ),
       );
@@ -177,7 +191,7 @@ export function synthesizePlan(
           makeOp(
             'updateIngest',
             `Update ingest config (direction: ${direction})`,
-            `/v1/tenants/${existingSite.tenantId}/sites/${existingSite.id}/ingest`,
+            `/v1/tenants/${existingSite.tenantId}/sites/${existingSite.id}`,
             'PATCH',
             { direction },
             ingest.id,
@@ -192,12 +206,12 @@ export function synthesizePlan(
     const data = tsdb.data as { retention?: string };
     const retention = data.retention ?? '1d';
 
-    if (tenantId && daemonState.tenants.length > 0) {
+    if (resolvedTenantId && daemonState.tenants.length > 0) {
       ops.push(
         makeOp(
           'updateTsdb',
           `Update TimescaleDB retention to ${retention}`,
-          `/v1/tenants/${tenantId ?? ':tenantId'}/tsdb`,
+          `/v1/tenants/${tenantPathSeg}`,
           'PATCH',
           { retention },
           tsdb.id,

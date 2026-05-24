@@ -10,6 +10,7 @@ import { applyRouter } from './routers/apply';
 import { streamRouter } from './routers/stream';
 import { telemetryRouter } from './routers/telemetry';
 import { dashboardRouter } from './routers/dashboard';
+import { gatewayRouter } from './routers/gateway';
 
 export const appRouter = router({
   org: orgRouter,
@@ -23,6 +24,7 @@ export const appRouter = router({
   stream: streamRouter,
   telemetry: telemetryRouter,
   dashboard: dashboardRouter,
+  gateway: gatewayRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { auth } from '@controlai-web/api';
+import { getSessionCookie } from 'better-auth/cookies';
 
 const PUBLIC_PATHS = [
   '/sign-in',
@@ -25,16 +25,17 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const session = await auth.api.getSession({ headers: req.headers });
+  // Lightweight cookie presence check — edge-compatible (no DB).
+  // The server components / route handlers do the full session validation
+  // via auth.api.getSession with the full Node runtime.
+  const sessionCookie = getSessionCookie(req);
 
-  if (!session?.user) {
+  if (!sessionCookie) {
     const signInUrl = new URL('/sign-in', req.url);
     signInUrl.searchParams.set('callbackUrl', pathname);
     return NextResponse.redirect(signInUrl);
   }
 
-  // Check if user needs to complete setup (has no org)
-  // Note: full setup state check is done server-side in the setup wizard page
   return NextResponse.next();
 }
 

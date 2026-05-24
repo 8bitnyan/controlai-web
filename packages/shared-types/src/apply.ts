@@ -67,7 +67,7 @@ export type TelemetryMessage = z.infer<typeof TelemetryMessageSchema>;
 
 // ─── Dashboard widget types ────────────────────────────────────────────────────
 
-export const WIDGET_TYPES = ['msg-rate-chart', 'status-board', 'last-n-messages', 'capacity-gauge'] as const;
+export const WIDGET_TYPES = ['msg-rate-chart', 'status-board', 'last-n-messages', 'capacity-gauge', 'sensor-io-stream'] as const;
 export type WidgetType = (typeof WIDGET_TYPES)[number];
 
 export const WidgetConfigSchema = z.object({

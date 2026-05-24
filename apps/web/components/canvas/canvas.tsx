@@ -27,8 +27,9 @@ import { TimescaleDBNode } from './nodes/timescaledb-node';
 import { MonitoringNode } from './nodes/monitoring-node';
 import { NodePalette } from './node-palette';
 import { ApplyModal } from './apply-modal';
+import { CanvasContextProvider } from './canvas-context';
 import { trpc } from '@/lib/trpc/client';
-import { RotateCcw, RotateCw, Trash2, Maximize2, Wifi, WifiOff, Loader2 } from 'lucide-react';
+import { RotateCcw, RotateCw, Trash2, Maximize2, Wifi, WifiOff, Loader2, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useSiteStream } from '@/hooks/use-site-stream';
@@ -110,6 +111,19 @@ export function Canvas({ orgId, projectId: _projectId, siteGroupId, siteId }: Ca
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     };
   }, [isDirty, nodes, edges, orgId, siteGroupId, saveMutation]);
+
+  const handleManualSave = useCallback(() => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    saveMutation.mutate({
+      orgId,
+      siteGroupId,
+      nodes: nodes as unknown as unknown[],
+      edges: edges as unknown[],
+    });
+  }, [nodes, edges, orgId, siteGroupId, saveMutation]);
 
   // SSE telemetry
   const siteStreamSiteId = siteId ?? '';
@@ -203,6 +217,7 @@ export function Canvas({ orgId, projectId: _projectId, siteGroupId, siteId }: Ca
   const [applyOpen, setApplyOpen] = useState(false);
 
   return (
+    <CanvasContextProvider orgId={orgId} siteGroupId={siteGroupId}>
     <>
     <div className="flex h-full min-h-[600px] flex-col gap-0">
       {/* Toolbar */}
@@ -254,6 +269,21 @@ export function Canvas({ orgId, projectId: _projectId, siteGroupId, siteId }: Ca
           <span className="text-xs text-muted-foreground">
             {isDirty ? 'Unsaved changes' : lastSaved ? `Saved ${formatRelative(lastSaved)}` : ''}
           </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleManualSave}
+            disabled={!isDirty || saveMutation.isPending}
+            title="Save now (⌘S)"
+            aria-label="Save now"
+          >
+            {saveMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            <span className="ml-1">Save</span>
+          </Button>
 
           {/* Apply run status */}
           {applyStatus && (
@@ -357,6 +387,7 @@ export function Canvas({ orgId, projectId: _projectId, siteGroupId, siteId }: Ca
       siteGroupId={siteGroupId}
     />
     </>
+    </CanvasContextProvider>
   );
 }
 

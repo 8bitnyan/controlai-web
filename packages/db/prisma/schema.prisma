@@ -197,6 +197,7 @@ model SiteGroup {
   nodeConfigs NodeConfig[]
   dashboard   Dashboard?
   applyRuns   ApplyRun[]
+  gateways    Gateway[]
 
   @@index([projectId])
 }
@@ -284,6 +285,32 @@ model ApplyRun {
   createdAt   DateTime @default(now())
 
   siteGroup SiteGroup @relation(fields: [siteGroupId], references: [id], onDelete: Cascade)
+
+  @@index([siteGroupId])
+}
+
+// ─── Gateway ──────────────────────────────────────────────────────────────────
+
+model Gateway {
+  id                  String    @id @default(cuid())
+  siteGroupId         String
+  siteGroup           SiteGroup @relation(fields: [siteGroupId], references: [id], onDelete: Cascade)
+  label               String
+  kind                String    // 'simulator' | 'physical'
+  mode                String    // 'cbor-modules-cloud' | 'json'
+  endpointURL         String    // e.g. "mqtts://broker.example.com:8883"
+  groupId             String    // modules_cloud GROUP_ID — used as CN in cert and topic segment
+  clientId            String    // MQTT client id — for cbor mode this is also EDGE_NODE_ID
+  rootCaPemEnc        String    // AES-256-GCM encrypted PEM via crypto.ts encryptToken
+  clientCertPemEnc    String
+  clientKeyPemEnc     String
+  sensors             Json      // [{id, type, min, max, walkStep, intervalMs, unit?, seed?}]
+  jsonTopicTemplate   String?   // optional, e.g. "sites/{siteId}/sensors/{sensorId}"; only when mode='json'
+  desiredState        String    @default("stopped") // 'stopped' | 'running'
+  lastStatus          String    @default("stopped") // last reported runtime status
+  lastError           String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   @@index([siteGroupId])
 }

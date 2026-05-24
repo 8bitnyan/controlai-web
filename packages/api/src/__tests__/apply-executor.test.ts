@@ -29,7 +29,7 @@ const makeOp = (overrides: Partial<Op> = {}): Op => ({
   description: 'Create tenant',
   path: '/v1/tenants',
   method: 'POST',
-  body: { name: 'default' },
+  body: { slug: 'default' },
   ...overrides,
 });
 

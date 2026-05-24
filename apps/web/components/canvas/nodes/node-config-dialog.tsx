@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useCanvasStore } from '@/stores/canvas-store';
+import { useCanvasContext } from '../canvas-context';
+import { trpc } from '@/lib/trpc/client';
 import type {
   NodeData,
   NodeType,
@@ -127,6 +129,12 @@ function GatewayConfigForm({
   onSave: (u: Partial<NodeData>) => void;
   onCancel: () => void;
 }) {
+  const { orgId, siteGroupId } = useCanvasContext();
+  const { data: gateways } = trpc.gateway.list.useQuery(
+    { orgId, siteGroupId },
+    { enabled: !!(orgId && siteGroupId) },
+  );
+
   return (
     <form
       className="space-y-4"
@@ -141,7 +149,29 @@ function GatewayConfigForm({
       }}
     >
       <Field label="Label" name="label" defaultValue={data.label} />
-      <Field label="Gateway ID" name="gateway_id" defaultValue={data.gateway_id} />
+      {gateways && gateways.length > 0 ? (
+        <div className="space-y-1">
+          <Label htmlFor="gateway_id">Linked Gateway</Label>
+          <select
+            id="gateway_id"
+            name="gateway_id"
+            defaultValue={data.gateway_id}
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <option value="">— none —</option>
+            {gateways.map((gw) => (
+              <option key={gw.id} value={gw.id}>
+                {gw.label} ({gw.lastStatus})
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground">
+            Link this canvas node to a gateway row from the Gateways tab.
+          </p>
+        </div>
+      ) : (
+        <Field label="Gateway ID" name="gateway_id" defaultValue={data.gateway_id} />
+      )}
       <SelectField label="Protocol" name="protocol" defaultValue={data.protocol} options={[{ value: 'mqtt', label: 'MQTT' }, { value: 'coap', label: 'CoAP' }, { value: 'http', label: 'HTTP' }]} />
       <FormActions onCancel={onCancel} />
     </form>

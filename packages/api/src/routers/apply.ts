@@ -59,22 +59,50 @@ export const applyRouter = router({
 
       const instance = sg.project.instance;
 
-      // Fetch current daemon state
+      // Fetch current daemon state. Daemon returns Go-style capitalized
+      // field names (ID, Name, Broker, Ingest, …) — normalize to camelCase.
       let daemonState: DaemonState = { tenants: [], sites: [] };
       try {
-        const tenants = await callDaemon<Array<{ id: string; name?: string }>>(
-          instance,
-          '/v1/tenants',
-        );
-        daemonState.tenants = tenants ?? [];
+        type DaemonTenantRaw = { ID?: string; id?: string; Name?: string; name?: string };
+        const rawTenants = await callDaemon<DaemonTenantRaw[]>(instance, '/v1/tenants');
+        daemonState.tenants = (rawTenants ?? [])
+          .map((t) => ({ id: t.ID ?? t.id ?? '', name: t.Name ?? t.name }))
+          .filter((t) => t.id);
 
         for (const tenant of daemonState.tenants) {
-          const sites = await callDaemon<Array<{ id: string; tenantId: string; broker?: { kind: string }; ingest?: { direction: string }; throughput?: string }>>(
+          type DaemonSiteRaw = {
+            ID?: string;
+            id?: string;
+            BrokerKind?: string;
+            Broker?: { Kind?: string; kind?: string };
+            broker?: { kind?: string };
+            Direction?: string;
+            Ingest?: { Direction?: string; direction?: string };
+            ingest?: { direction?: string };
+            Throughput?: string;
+            throughput?: string;
+          };
+          const rawSites = await callDaemon<DaemonSiteRaw[]>(
             instance,
             `/v1/tenants/${tenant.id}/sites`,
           );
-          if (sites) {
-            daemonState.sites.push(...sites.map((s) => ({ ...s, tenantId: tenant.id })));
+          if (rawSites) {
+            for (const s of rawSites) {
+              const siteId = s.ID ?? s.id ?? '';
+              if (!siteId) continue;
+              const brokerKind =
+                s.BrokerKind ?? s.Broker?.Kind ?? s.Broker?.kind ?? s.broker?.kind;
+              const direction =
+                s.Direction ?? s.Ingest?.Direction ?? s.Ingest?.direction ?? s.ingest?.direction;
+              const throughput = s.Throughput ?? s.throughput;
+              daemonState.sites.push({
+                id: siteId,
+                tenantId: tenant.id,
+                broker: brokerKind ? { kind: brokerKind } : undefined,
+                ingest: direction ? { direction } : undefined,
+                throughput,
+              });
+            }
           }
         }
       } catch {
@@ -145,8 +173,13 @@ export const applyRouter = router({
 
       let daemonState: DaemonState = { tenants: [], sites: [] };
       try {
-        const tenants = await callDaemon<Array<{ id: string }>>(sg.project.instance, '/v1/tenants');
-        daemonState.tenants = tenants ?? [];
+        const rawTenants = await callDaemon<Array<{ ID?: string; id?: string }>>(
+          sg.project.instance,
+          '/v1/tenants',
+        );
+        daemonState.tenants = (rawTenants ?? [])
+          .map((t) => ({ id: t.ID ?? t.id ?? '' }))
+          .filter((t) => t.id);
       } catch {
         daemonState = { tenants: [], sites: [] };
       }

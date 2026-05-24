@@ -1,4 +1,5 @@
 import mqtt, { type MqttClient } from 'mqtt';
+import { decode as cborDecode } from 'cbor-x';
 import { sseFanout } from './sse-fanout';
 import { writeMessage } from './redis-writer';
 
@@ -76,10 +77,34 @@ function createClient(siteId: string, config: BrokerConfig): void {
 
   client.on('message', (topic, payload) => {
     let parsed: unknown;
-    try {
-      parsed = JSON.parse(payload.toString());
-    } catch {
-      parsed = payload.toString();
+    let parseError: string | undefined;
+
+    if (topic.startsWith('modules/')) {
+      // Attempt CBOR decode first for modules_cloud-main topics
+      try {
+        const decoded = cborDecode(payload) as Record<string, unknown>;
+        // Re-shape to a JSON-friendly form: convert Uint8Array id to hex string
+        if (decoded && typeof decoded === 'object') {
+          if (decoded['id'] instanceof Uint8Array) {
+            decoded['id'] = Buffer.from(decoded['id']).toString('hex');
+          }
+        }
+        parsed = decoded;
+      } catch {
+        // Fall through to JSON / raw
+        try {
+          parsed = JSON.parse(payload.toString());
+        } catch {
+          parsed = payload.toString('base64');
+          parseError = 'cbor_and_json_parse_failed';
+        }
+      }
+    } else {
+      try {
+        parsed = JSON.parse(payload.toString());
+      } catch {
+        parsed = payload.toString();
+      }
     }
 
     const message = JSON.stringify({
@@ -88,6 +113,7 @@ function createClient(siteId: string, config: BrokerConfig): void {
       topic,
       payload: parsed,
       timestamp: new Date().toISOString(),
+      ...(parseError ? { parseError } : {}),
     });
 
     sseFanout.emit(siteId, message);

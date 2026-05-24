@@ -13,6 +13,7 @@ import { MsgRateChart } from './widgets/msg-rate-chart';
 import { StatusBoard } from './widgets/status-board';
 import { LastNMessages } from './widgets/last-n-messages';
 import { CapacityGauge } from './widgets/capacity-gauge';
+import { SensorIoStream } from './widgets/sensor-io-stream';
 import { LayoutDashboard } from 'lucide-react';
 
 interface DashboardGridProps {
@@ -76,14 +77,16 @@ export function DashboardGrid({
   }
 
   function handleAddWidget(widget: WidgetConfig) {
+    const defaultW = widget.type === 'sensor-io-stream' ? 8 : 4;
+    const defaultH = widget.type === 'sensor-io-stream' ? 4 : 4;
     const newItem: PersistedLayout = {
       widget,
       layout: {
         i: widget.id,
         x: (items.length % 4) * 3,
         y: Infinity,
-        w: 4,
-        h: 4,
+        w: defaultW,
+        h: defaultH,
       },
     };
     const newItems = [...items, newItem];
@@ -183,6 +186,8 @@ function WidgetContent({
       return <LastNMessages orgId={orgId} siteId={siteId ?? ''} />;
     case 'capacity-gauge':
       return <CapacityGauge orgId={orgId} instanceId={instanceId ?? ''} />;
+    case 'sensor-io-stream':
+      return <SensorIoStream orgId={orgId} siteGroupId={siteGroupId} />;
     default:
       return null;
   }
