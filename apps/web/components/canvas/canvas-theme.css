@@ -1,0 +1,28 @@
+/* Canvas theme variables — overrides @xyflow/react defaults to match app Tailwind theme */
+
+.react-flow {
+  --xy-background-color: hsl(var(--background));
+  --xy-minimap-background-color: hsl(var(--card));
+  --xy-node-border-radius: 8px;
+  --xy-edge-stroke: hsl(var(--border));
+  --xy-edge-stroke-width: 2;
+  --xy-selection-background-color: hsl(var(--primary) / 0.1);
+  --xy-selection-border-color: hsl(var(--primary));
+  --xy-controls-button-background-color: hsl(var(--background));
+  --xy-controls-button-background-color-hover: hsl(var(--muted));
+  --xy-controls-button-color: hsl(var(--foreground));
+  --xy-controls-button-border-color: hsl(var(--border));
+  --xy-controls-box-shadow: 0 1px 3px 0 hsl(0 0% 0% / 0.1);
+}
+
+/* Animated edge when source is HEALTHY */
+.react-flow__edge-path.animated {
+  stroke-dasharray: 5;
+  animation: dashdraw 0.5s linear infinite;
+}
+
+@keyframes dashdraw {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
