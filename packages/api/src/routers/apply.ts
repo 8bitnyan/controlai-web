@@ -39,15 +39,21 @@ export const applyRouter = router({
       });
       if (!sg) throw new TRPCError({ code: 'FORBIDDEN' });
 
-      const nodeConfig = await ctx.prisma.nodeConfig.findFirst({
-        where: { siteGroupId: input.siteGroupId, isActive: true },
-        orderBy: { version: 'desc' },
-      });
+      // Load the active NodeConfig, or fall back to the latest draft for first-time apply
+      const nodeConfig =
+        (await ctx.prisma.nodeConfig.findFirst({
+          where: { siteGroupId: input.siteGroupId, isActive: true },
+          orderBy: { version: 'desc' },
+        })) ??
+        (await ctx.prisma.nodeConfig.findFirst({
+          where: { siteGroupId: input.siteGroupId },
+          orderBy: { version: 'desc' },
+        }));
 
       if (!nodeConfig) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: 'No active NodeConfig found. Save and apply a configuration first.',
+          message: 'No NodeConfig found. Design a pipeline and save before applying.',
         });
       }
 
@@ -117,15 +123,20 @@ export const applyRouter = router({
         });
       }
 
-      // Validate plan hash hasn't changed (re-derive from active NodeConfig)
-      const nodeConfig = await ctx.prisma.nodeConfig.findFirst({
-        where: { siteGroupId: input.siteGroupId, isActive: true },
-        orderBy: { version: 'desc' },
-      });
+      // Validate plan hash hasn't changed (re-derive from active NodeConfig or latest draft)
+      const nodeConfig =
+        (await ctx.prisma.nodeConfig.findFirst({
+          where: { siteGroupId: input.siteGroupId, isActive: true },
+          orderBy: { version: 'desc' },
+        })) ??
+        (await ctx.prisma.nodeConfig.findFirst({
+          where: { siteGroupId: input.siteGroupId },
+          orderBy: { version: 'desc' },
+        }));
       if (!nodeConfig) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: 'No active NodeConfig — re-run preview.',
+          message: 'No NodeConfig — re-run preview.',
         });
       }
 

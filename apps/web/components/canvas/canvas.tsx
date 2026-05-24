@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ReactFlow,
   Background,
@@ -26,7 +26,7 @@ import { IngestNode } from './nodes/ingest-node';
 import { TimescaleDBNode } from './nodes/timescaledb-node';
 import { MonitoringNode } from './nodes/monitoring-node';
 import { NodePalette } from './node-palette';
-import { ApplyButton } from './apply-modal';
+import { ApplyModal } from './apply-modal';
 import { trpc } from '@/lib/trpc/client';
 import { RotateCcw, RotateCw, Trash2, Maximize2, Wifi, WifiOff, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -199,7 +199,11 @@ export function Canvas({ orgId, projectId: _projectId, siteGroupId, siteId }: Ca
   // ApplyRun status for toolbar
   const { data: applyStatus } = trpc.provision.status.useQuery({ orgId, siteGroupId });
 
+  // Controlled Apply modal state (shared by Apply button + Re-run button)
+  const [applyOpen, setApplyOpen] = useState(false);
+
   return (
+    <>
     <div className="flex h-full min-h-[600px] flex-col gap-0">
       {/* Toolbar */}
       <div className="flex items-center justify-between border-b bg-background px-3 py-2 gap-2">
@@ -264,6 +268,17 @@ export function Canvas({ orgId, projectId: _projectId, siteGroupId, siteId }: Ca
                 : 'Last apply failed'}
             </span>
           )}
+          {/* Re-run button when last apply failed */}
+          {applyStatus && !applyStatus.success && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setApplyOpen(true)}
+              aria-label="Re-run apply"
+            >
+              Re-run
+            </Button>
+          )}
 
           {/* SSE status */}
           <span
@@ -281,7 +296,9 @@ export function Canvas({ orgId, projectId: _projectId, siteGroupId, siteId }: Ca
             {sseStatus === 'connected' ? 'Live' : sseStatus === 'connecting' ? 'Connecting…' : 'Disconnected'}
           </span>
 
-          <ApplyButton orgId={orgId} siteGroupId={siteGroupId} />
+          <Button size="sm" onClick={() => setApplyOpen(true)} aria-label="Apply pipeline configuration">
+            Apply
+          </Button>
         </div>
       </div>
 
@@ -295,10 +312,21 @@ export function Canvas({ orgId, projectId: _projectId, siteGroupId, siteId }: Ca
         {/* Flow canvas */}
         <div
           ref={reactFlowWrapper}
-          className="flex-1"
+          className="relative flex-1"
           onDragOver={onDragOver}
           onDrop={onDrop}
         >
+          {/* Empty state hint — shown when canvas has no nodes */}
+          {nodes.length === 0 && (
+            <div
+              className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
+              aria-hidden
+            >
+              <p className="rounded-lg border border-dashed bg-background/80 px-6 py-4 text-sm text-muted-foreground backdrop-blur-sm">
+                Drag node types from the panel to start
+              </p>
+            </div>
+          )}
           <ReactFlow
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             nodes={nodes as any}
@@ -320,6 +348,15 @@ export function Canvas({ orgId, projectId: _projectId, siteGroupId, siteId }: Ca
         </div>
       </div>
     </div>
+
+    {/* Apply modal — controlled from toolbar Apply + Re-run buttons */}
+    <ApplyModal
+      open={applyOpen}
+      onClose={() => setApplyOpen(false)}
+      orgId={orgId}
+      siteGroupId={siteGroupId}
+    />
+    </>
   );
 }
 
