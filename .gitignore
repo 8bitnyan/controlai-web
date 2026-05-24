@@ -48,3 +48,6 @@ Thumbs.db
 *.log
 npm-debug.log*
 pnpm-debug.log*
+
+# Ralph loop runtime state — managed by the driver, never commit.
+.slash/ralph/
