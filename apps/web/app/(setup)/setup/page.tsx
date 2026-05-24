@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { trpc } from '@/lib/trpc/client';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,14 @@ const STEPS = ['Welcome', 'Create Org', 'Add Instance', 'Done'] as const;
 type Step = 1 | 2 | 3 | 4;
 
 export default function SetupPage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+      <SetupPageInner />
+    </Suspense>
+  );
+}
+
+function SetupPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialStep = Number(searchParams.get('step') ?? '1') as Step;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from '@/lib/auth-client';
@@ -18,6 +18,14 @@ import {
 import { LayoutDashboard } from 'lucide-react';
 
 export default function SignInPage() {
+  return (
+    <Suspense fallback={<Card className="w-full max-w-sm"><CardHeader className="text-center"><CardTitle>Sign in</CardTitle></CardHeader></Card>}>
+      <SignInPageInner />
+    </Suspense>
+  );
+}
+
+function SignInPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') ?? '/';
