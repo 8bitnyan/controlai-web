@@ -149,6 +149,9 @@ export default function ProjectDetailPage() {
               <CardContent>
                 <p className="text-xs text-muted-foreground">
                   {sg._count.sites} site{sg._count.sites !== 1 && 's'}
+                  {sg._count.gateways > 0 && (
+                    <span className="ml-2">· {sg._count.gateways} gateway{sg._count.gateways !== 1 && 's'}</span>
+                  )}
                 </p>
               </CardContent>
             </Card>

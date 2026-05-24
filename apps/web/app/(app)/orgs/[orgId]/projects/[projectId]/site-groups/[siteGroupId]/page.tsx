@@ -14,7 +14,7 @@ export default async function SiteGroupCanvasPage({ params }: Props) {
   const { orgId, projectId, siteGroupId } = await params;
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col overflow-hidden">
+    <div className="flex flex-1 flex-col overflow-hidden" style={{ height: 'calc(100vh - 9rem)' }}>
       <ReactFlowProvider>
         <Suspense fallback={<div className="flex flex-1 items-center justify-center text-muted-foreground">Loading canvas…</div>}>
           <Canvas

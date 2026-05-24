@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth-server';
 import { prisma } from '@controlai-web/db';
 import { DashboardGrid } from '@/components/dashboard/dashboard-grid';
-import { Breadcrumb } from '@/components/layout/breadcrumb';
 
 interface Props {
   params: Promise<{
@@ -40,22 +39,7 @@ export default async function DashboardPage({ params }: Props) {
   const siteId = siteGroup.sites[0]?.id;
 
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <Breadcrumb
-          segments={[
-            { label: 'Projects', href: `/orgs/${orgId}/projects` },
-            { label: siteGroup.project.name, href: `/orgs/${orgId}/projects/${projectId}` },
-            {
-              label: siteGroup.name,
-              href: `/orgs/${orgId}/projects/${projectId}/site-groups/${siteGroupId}`,
-            },
-            { label: 'Dashboard' },
-          ]}
-        />
-        <h1 className="mt-1 text-2xl font-bold">{siteGroup.name} — Dashboard</h1>
-      </div>
-
+    <div className="p-6">
       <DashboardGrid
         orgId={orgId}
         siteGroupId={siteGroupId}

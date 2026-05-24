@@ -22,7 +22,7 @@ export const siteGroupRouter = router({
 
       return ctx.prisma.siteGroup.findMany({
         where: { projectId: input.projectId },
-        include: { _count: { select: { sites: true } } },
+        include: { _count: { select: { sites: true, gateways: true } } },
         orderBy: { createdAt: 'asc' },
       });
     }),
