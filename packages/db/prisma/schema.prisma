@@ -1,0 +1,261 @@
+// packages/db/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── better-auth required models ─────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions    Session[]
+  accounts    Account[]
+  memberships OrganizationMember[]
+  auditLogs   AuditLog[]
+  addedInstances ControlaiInstance[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+}
+
+model Verification {
+  id         String    @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @updatedAt
+
+  @@unique([identifier, value])
+}
+
+// ─── Organization ─────────────────────────────────────────────────────────────
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logo      String?
+  metadata  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members     OrganizationMember[]
+  invitations OrganizationInvitation[]
+  instances   ControlaiInstance[]
+  projects    Project[]
+  auditLogs   AuditLog[]
+}
+
+model OrganizationMember {
+  id        String   @id @default(cuid())
+  orgId     String
+  userId    String
+  role      OrgRole  @default(MEMBER)
+  createdAt DateTime @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+  @@index([orgId])
+  @@index([userId])
+}
+
+model OrganizationInvitation {
+  id        String           @id @default(cuid())
+  orgId     String
+  email     String
+  role      OrgRole          @default(MEMBER)
+  token     String           @unique @default(cuid())
+  status    InvitationStatus @default(PENDING)
+  expiresAt DateTime
+  inviterId String?
+  createdAt DateTime         @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([email])
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+// ─── ControlaiInstance ────────────────────────────────────────────────────────
+
+model ControlaiInstance {
+  id                String         @id @default(cuid())
+  orgId             String
+  name              String
+  baseURL           String
+  bearerTokenEnc    String         // AES-256-GCM encrypted; plaintext never stored
+  status            InstanceStatus @default(UNKNOWN)
+  lastSeenAt        DateTime?
+  version           String?
+  capacityUsedMB    Int?
+  capacityAllowedMB Int?
+  consecutiveFails  Int            @default(0)
+  addedById         String
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  addedBy  User         @relation(fields: [addedById], references: [id])
+  projects Project[]
+
+  @@index([orgId])
+}
+
+enum InstanceStatus {
+  UNKNOWN
+  HEALTHY
+  DEGRADED
+  UNREACHABLE
+}
+
+// ─── Project ──────────────────────────────────────────────────────────────────
+
+model Project {
+  id         String   @id @default(cuid())
+  orgId      String
+  instanceId String
+  name       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  org        Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  instance   ControlaiInstance @relation(fields: [instanceId], references: [id])
+  siteGroups SiteGroup[]
+
+  @@index([orgId])
+  @@index([instanceId])
+}
+
+// ─── SiteGroup ────────────────────────────────────────────────────────────────
+
+model SiteGroup {
+  id        String   @id @default(cuid())
+  projectId String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sites   Site[]
+
+  @@index([projectId])
+}
+
+// ─── Site ─────────────────────────────────────────────────────────────────────
+
+model Site {
+  id                String  @id @default(cuid())
+  siteGroupId       String
+  name              String
+  brokerKind        String? // 'MOSQUITTO' | 'EMQX'
+  ingestDirection   String? // 'UNI' | 'BI'
+  throughputTier    String? // 'LOW' | 'MID' | 'HIGH'
+  retentionPeriod   String? // '1m' | '1h' | '1d' | '7d' | '30d'
+  controlaiTenantId String? // null until Apply provisions the daemon tenant
+  controlaiSiteId   String? // null until Apply provisions the daemon site
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  siteGroup SiteGroup @relation(fields: [siteGroupId], references: [id], onDelete: Cascade)
+
+  @@index([siteGroupId])
+}
+
+// ─── AuditLog ─────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  orgId      String
+  userId     String?
+  action     String
+  targetId   String?
+  targetType String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User?        @relation(fields: [userId], references: [id])
+
+  @@index([orgId])
+  @@index([userId])
+  @@index([action])
+}
+
+// ─── Placeholders for pipeline-ux ─────────────────────────────────────────────
+
+// Dashboard and NodeConfig models are stubs used by add-controlai-web-pipeline-ux
+model Dashboard {
+  id        String   @id @default(cuid())
+  orgId     String
+  projectId String?
+  name      String
+  config    Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model NodeConfig {
+  id          String   @id @default(cuid())
+  siteGroupId String
+  config      Json     @default("{}")
+  version     Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
