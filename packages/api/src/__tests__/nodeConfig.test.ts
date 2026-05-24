@@ -92,7 +92,7 @@ async function simulateSetActive(
 
 async function simulateLoad(
   prisma: ReturnType<typeof makeNodeConfigPrisma>,
-  input: { siteGroupId: string; orgId: string },
+  _input: { siteGroupId: string; orgId: string },
 ) {
   const sg = await prisma.siteGroup.findFirst({ where: {} });
   if (!sg) throw new TRPCError({ code: 'FORBIDDEN' });
