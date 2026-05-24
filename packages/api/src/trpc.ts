@@ -48,12 +48,12 @@ export const protectedProcedure = t.procedure.use(isAuthed);
  * Org procedure — requires valid session + verified org membership.
  * Reads `orgId` from input (supports multi-org users).
  */
-const isOrgMember = middleware(async ({ ctx, rawInput, next }) => {
+const isOrgMember = middleware(async ({ ctx, getRawInput, next }) => {
   if (!ctx.session?.user) {
     throw new TRPCError({ code: 'UNAUTHORIZED' });
   }
 
-  const input = rawInput as { orgId?: string };
+  const input = (await getRawInput()) as { orgId?: string };
   const orgId = input.orgId;
 
   if (!orgId) {
@@ -90,12 +90,12 @@ export const orgProcedure = t.procedure.use(isOrgMember);
 /**
  * Owner/Admin procedure — requires OWNER or ADMIN role in the org.
  */
-const isOwnerOrAdmin = middleware(async ({ ctx, rawInput, next }) => {
+const isOwnerOrAdmin = middleware(async ({ ctx, getRawInput, next }) => {
   if (!ctx.session?.user) {
     throw new TRPCError({ code: 'UNAUTHORIZED' });
   }
 
-  const input = rawInput as { orgId?: string };
+  const input = (await getRawInput()) as { orgId?: string };
   const orgId = input.orgId;
 
   if (!orgId) {

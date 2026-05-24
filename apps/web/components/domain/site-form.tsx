@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 
 interface SiteFormProps {
+  orgId: string;
   siteGroupId: string;
   initialValues?: {
     siteId?: string;
@@ -45,6 +46,7 @@ const RETENTION_PERIODS = [
 ] as const;
 
 export function SiteForm({
+  orgId,
   siteGroupId,
   initialValues,
   onSuccess,
@@ -86,6 +88,7 @@ export function SiteForm({
     try {
       if (isEdit && initialValues?.siteId) {
         await updateSite.mutateAsync({
+          orgId,
           siteId: initialValues.siteId,
           name,
           brokerKind: (brokerKind as 'MOSQUITTO' | 'EMQX') || undefined,
@@ -96,6 +99,7 @@ export function SiteForm({
         });
       } else {
         await createSite.mutateAsync({
+          orgId,
           siteGroupId,
           name,
           brokerKind: (brokerKind as 'MOSQUITTO' | 'EMQX') || undefined,

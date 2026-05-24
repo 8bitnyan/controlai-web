@@ -16,7 +16,7 @@ import { Loader2, Trash2 } from 'lucide-react';
 interface DeleteConfirmDialogProps {
   resourceName: string;
   resourceType?: string;
-  onConfirm: () => Promise<void>;
+  onConfirm: () => Promise<unknown>;
   trigger?: React.ReactNode;
   disabled?: boolean;
 }

@@ -1,9 +1,8 @@
 import type { inferAsyncReturnType } from '@trpc/server';
-import type { FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
 import { auth } from './auth';
 import { prisma } from '@controlai-web/db';
 
-export async function createTRPCContext(opts: FetchCreateContextFnOptions) {
+export async function createTRPCContext(opts: { req: Request }) {
   const session = await auth.api.getSession({ headers: opts.req.headers });
 
   return {

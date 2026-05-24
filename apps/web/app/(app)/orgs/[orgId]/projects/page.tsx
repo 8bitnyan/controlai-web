@@ -157,7 +157,7 @@ export default function ProjectsPage() {
                     resourceName={project.name}
                     resourceType="project"
                     onConfirm={() =>
-                      deleteProject.mutateAsync({ projectId: project.id })
+                      deleteProject.mutateAsync({ orgId, projectId: project.id })
                     }
                   />
                 </div>

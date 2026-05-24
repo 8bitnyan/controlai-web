@@ -63,6 +63,7 @@ export default function SiteGroupDetailPage() {
               <DialogTitle>Create a new site</DialogTitle>
             </DialogHeader>
             <SiteForm
+              orgId={orgId}
               siteGroupId={siteGroupId}
               onSuccess={() => setCreateOpen(false)}
             />

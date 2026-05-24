@@ -2,7 +2,7 @@
  * Fire-and-forget audit log writer.
  * Failures are logged but NOT thrown — audit writes must not block mutations.
  */
-import type { PrismaClient } from '@controlai-web/db';
+import type { PrismaClient, Prisma } from '@controlai-web/db';
 
 export interface WriteAuditInput {
   orgId: string;
@@ -25,7 +25,7 @@ export async function writeAudit(
         action: input.action,
         targetId: input.targetId ?? null,
         targetType: input.targetType ?? null,
-        metadata: input.metadata ?? undefined,
+        metadata: (input.metadata ?? undefined) as Prisma.InputJsonValue | undefined,
       },
     });
   } catch (err) {
