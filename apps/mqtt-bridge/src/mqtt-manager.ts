@@ -1,4 +1,5 @@
 import mqtt, { type MqttClient } from 'mqtt';
+import { checkServerIdentity as tlsCheckServerIdentity } from 'node:tls';
 import { decode as cborDecode } from 'cbor-x';
 import { sseFanout } from './sse-fanout';
 import { writeMessage } from './redis-writer';
@@ -18,6 +19,9 @@ const clients = new Map<string, SiteClientState>();
 
 export interface BrokerConfig {
   url: string; // mqtts://host:port or mqtt://host:port
+  servername?: string;
+  host?: string;
+  port?: number;
   caCert?: string; // PEM
   clientCert?: string; // PEM
   clientKey?: string; // PEM
@@ -45,6 +49,12 @@ export function ensureSiteClient(siteId: string, config: BrokerConfig): void {
 }
 
 function createClient(siteId: string, config: BrokerConfig): void {
+  // Validate cert SAN against the SNI hostname we send, not against the TCP host.
+  const checkServerIdentity = config.servername
+    ? (_host: string, cert: import('node:tls').PeerCertificate) =>
+        tlsCheckServerIdentity(config.servername!, cert)
+    : undefined;
+
   const tlsOptions =
     config.clientCert && config.clientKey
       ? {
@@ -52,6 +62,10 @@ function createClient(siteId: string, config: BrokerConfig): void {
           cert: config.clientCert,
           key: config.clientKey,
           rejectUnauthorized: !!config.caCert,
+          servername: config.servername,
+          ...(checkServerIdentity
+            ? ({ checkServerIdentity } as unknown as Record<string, unknown>)
+            : {}),
         }
       : {};
 

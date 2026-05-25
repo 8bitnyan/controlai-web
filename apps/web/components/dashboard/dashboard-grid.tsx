@@ -77,8 +77,8 @@ export function DashboardGrid({
   }
 
   function handleAddWidget(widget: WidgetConfig) {
-    const defaultW = widget.type === 'sensor-io-stream' ? 8 : 4;
-    const defaultH = widget.type === 'sensor-io-stream' ? 4 : 4;
+    const defaultW = widget.type === 'sensor-io-stream' ? 12 : 4;
+    const defaultH = widget.type === 'sensor-io-stream' ? 8 : 4;
     const newItem: PersistedLayout = {
       widget,
       layout: {

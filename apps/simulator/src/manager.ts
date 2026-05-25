@@ -60,6 +60,9 @@ async function loadGateway(gatewayId: string): Promise<GatewayDTO & {
     kind: row.kind as GatewayDTO['kind'],
     mode: row.mode as GatewayDTO['mode'],
     endpointURL: row.endpointURL,
+    tlsServername: row.tlsServername,
+    brokerHost: row.brokerHost,
+    brokerPort: row.brokerPort,
     groupId: row.groupId,
     clientId: row.clientId,
     sensors: row.sensors as unknown as SensorConfig[],
@@ -100,7 +103,19 @@ export async function startGateway(gatewayId: string): Promise<void> {
   emitStatus(gatewayId, 'connecting');
   await updateStatus(gatewayId, 'connecting');
 
-  const client = mqtt.connect(gw.endpointURL, {
+  const endpoint = new URL(gw.endpointURL);
+  const tcpHost = gw.brokerHost ?? endpoint.hostname;
+  const tcpPort = gw.brokerPort ?? (endpoint.port ? Number(endpoint.port) : 8883);
+  const servername = gw.tlsServername ?? endpoint.hostname;
+  const connectUrl = `mqtts://${tcpHost}:${tcpPort}`;
+
+  // Custom cert-identity check: validate cert SAN against the SNI hostname we sent,
+  // not against the TCP connect host (which is an IP or routing FQDN that won't be in the SAN).
+  const { checkServerIdentity: defaultCheck } = await import('node:tls');
+  const checkServerIdentity = (_host: string, cert: import('node:tls').PeerCertificate) =>
+    defaultCheck(servername, cert);
+
+  const client = mqtt.connect(connectUrl, {
     clientId: gw.clientId,
     clean: true,
     reconnectPeriod: 5000,
@@ -108,6 +123,10 @@ export async function startGateway(gatewayId: string): Promise<void> {
     cert: clientCertPem,
     key: clientKeyPem,
     rejectUnauthorized: true,
+    servername,
+    // mqtt.js IClientOptions doesn't declare checkServerIdentity, but it forwards
+    // unknown TLS options to tls.connect. Cast through unknown to bypass the lint.
+    ...({ checkServerIdentity } as unknown as Record<string, unknown>),
     ...(ndeath && deathTopic
       ? {
           will: {
@@ -144,7 +163,7 @@ export async function startGateway(gatewayId: string): Promise<void> {
       emitOutbox({
         gatewayId,
         topic,
-        payloadSummary: `<CBOR NBIRTH ${sensors.length} sensors>`,
+        payloadSummary: `NBIRTH ${sensors.length} sensors [${sensors.map((s) => s.id).join(',')}]`,
         ts: Date.now(),
       });
     }
@@ -165,7 +184,7 @@ export async function startGateway(gatewayId: string): Promise<void> {
           emitOutbox({
             gatewayId,
             topic,
-            payloadSummary: `<CBOR NDATA 1 reading>`,
+            payloadSummary: `NDATA ${sensor.id}=${value.toFixed(3)}`,
             ts,
             readings: [{ sensorId: sensor.id, value }],
           });
@@ -222,7 +241,7 @@ export async function stopGateway(gatewayId: string): Promise<void> {
         emitOutbox({
           gatewayId,
           topic,
-          payloadSummary: '<CBOR NDEATH>',
+          payloadSummary: 'NDEATH',
           ts: Date.now(),
         });
       });

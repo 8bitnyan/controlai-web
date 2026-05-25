@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { trpc } from '@/lib/trpc/client';
 import type { GatewayDTO, SensorConfig } from '@controlai-web/shared-types';
-import { Plus, Trash2, KeyRound, Loader2 } from 'lucide-react';
+import { Plus, Trash2, KeyRound, Loader2, ChevronDown, ChevronRight, Search } from 'lucide-react';
 
 interface GatewayDialogProps {
   open: boolean;
@@ -45,6 +45,12 @@ export function GatewayDialog({ open, onClose, orgId, siteGroupId, existing }: G
   const [groupId, setGroupId] = useState(existing?.groupId ?? '');
   const [clientId, setClientId] = useState(existing?.clientId ?? '');
   const [endpointURL, setEndpointURL] = useState(existing?.endpointURL ?? '');
+  const [brokerHost, setBrokerHost] = useState(existing?.brokerHost ?? '');
+  const [brokerPort, setBrokerPort] = useState(existing?.brokerPort?.toString() ?? '');
+  const [tlsServername, setTlsServername] = useState(existing?.tlsServername ?? '');
+  const [advancedOpen, setAdvancedOpen] = useState(
+    Boolean(existing?.brokerHost || existing?.brokerPort || existing?.tlsServername),
+  );
 
   // Credentials
   const [rootCaPem, setRootCaPem] = useState('');
@@ -87,6 +93,7 @@ export function GatewayDialog({ open, onClose, orgId, siteGroupId, existing }: G
     },
     onError: (e) => setError(e.message),
   });
+  const [isDetectingBrokerEndpoint, setIsDetectingBrokerEndpoint] = useState(false);
 
   const isRunning = existing?.lastStatus !== 'stopped' && existing?.lastStatus !== undefined;
 
@@ -95,6 +102,10 @@ export function GatewayDialog({ open, onClose, orgId, siteGroupId, existing }: G
     setError(null);
 
     if (existing) {
+      const brokerHostValue = brokerHost.trim() || null;
+      const brokerPortNumber = Number(brokerPort);
+      const brokerPortValue = brokerPort.trim() ? (Number.isNaN(brokerPortNumber) ? null : brokerPortNumber) : null;
+      const tlsServernameValue = tlsServername.trim() || null;
       updateMutation.mutate({
         orgId,
         gatewayId: existing.id,
@@ -104,6 +115,9 @@ export function GatewayDialog({ open, onClose, orgId, siteGroupId, existing }: G
         ...(clientKeyPem ? { clientKeyPem } : {}),
         sensors,
         jsonTopicTemplate: jsonTopicTemplate || null,
+        brokerHost: brokerHostValue === existing.brokerHost ? undefined : brokerHostValue,
+        brokerPort: brokerPortValue === existing.brokerPort ? undefined : brokerPortValue,
+        tlsServername: tlsServernameValue === existing.tlsServername ? undefined : tlsServernameValue,
       });
     } else {
       if (!rootCaPem || !clientCertPem || !clientKeyPem) {
@@ -125,6 +139,9 @@ export function GatewayDialog({ open, onClose, orgId, siteGroupId, existing }: G
         clientKeyPem,
         sensors,
         jsonTopicTemplate: jsonTopicTemplate || undefined,
+        brokerHost: brokerHost.trim() || undefined,
+        brokerPort: Number(brokerPort) || undefined,
+        tlsServername: tlsServername.trim() || undefined,
       });
     }
   }
@@ -187,6 +204,90 @@ export function GatewayDialog({ open, onClose, orgId, siteGroupId, existing }: G
                     placeholder="My Simulator"
                     required
                   />
+                </div>
+                <div className="rounded-md border">
+                  <button
+                    type="button"
+                    onClick={() => setAdvancedOpen((prev) => !prev)}
+                    className="flex w-full items-center justify-between px-3 py-2 text-sm font-medium"
+                  >
+                    <span>Advanced (SNI routing)</span>
+                    {advancedOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  </button>
+                  {advancedOpen && (
+                    <div className="space-y-3 border-t px-3 py-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label htmlFor="gw-broker-host">Broker Host Override</Label>
+                          <Input
+                            id="gw-broker-host"
+                            value={brokerHost}
+                            onChange={(e) => setBrokerHost(e.target.value)}
+                            placeholder="e.g. 52.79.241.139 (overrides endpointURL host)"
+                            disabled={isRunning}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="gw-broker-port">Broker Port Override</Label>
+                          <Input
+                            id="gw-broker-port"
+                            type="number"
+                            min={1}
+                            max={65535}
+                            value={brokerPort}
+                            onChange={(e) => setBrokerPort(e.target.value)}
+                            placeholder="8883"
+                            disabled={isRunning}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="gw-tls-servername">TLS Server Name (SNI)</Label>
+                        <Input
+                          id="gw-tls-servername"
+                          value={tlsServername}
+                          onChange={(e) => setTlsServername(e.target.value)}
+                          placeholder="e.g. ste_xxx.tnt_default.52-79-241-139.nip.io"
+                          disabled={isRunning}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Required when broker public hostname differs from the SNI cert hostname (Traefik SNI routing).
+                        </p>
+                      </div>
+                      <div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={isRunning || isDetectingBrokerEndpoint}
+                          onClick={async () => {
+                            setError(null);
+                            try {
+                              setIsDetectingBrokerEndpoint(true);
+                              const detected = await utils.gateway.detectBrokerEndpoint.fetch({ orgId, siteGroupId });
+                              setBrokerHost(detected.brokerHost);
+                              setBrokerPort(detected.brokerPort.toString());
+                              setTlsServername(detected.tlsServername);
+                              if (!endpointURL.trim()) {
+                                setEndpointURL(detected.endpointURL);
+                              }
+                            } catch (e) {
+                              setError(e instanceof Error ? e.message : 'Failed to detect broker endpoint.');
+                            } finally {
+                              setIsDetectingBrokerEndpoint(false);
+                            }
+                          }}
+                        >
+                          {isDetectingBrokerEndpoint ? (
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                          ) : (
+                            <Search className="mr-1 h-3 w-3" />
+                          )}
+                          Detect from project
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">

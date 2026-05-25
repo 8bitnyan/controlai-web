@@ -74,6 +74,11 @@ export function synthesizePlan(
   edges: GraphEdge[],
   daemonState: DaemonState,
   existingTenantId?: string | null,
+  existingSites: Array<{
+    canvasNodeId: string | null;
+    controlaiTenantId: string | null;
+    controlaiSiteId: string | null;
+  }> = [],
 ): Plan {
   const ops: Op[] = [];
 
@@ -89,15 +94,25 @@ export function synthesizePlan(
   const hasDaemonTenant = daemonState.tenants.length > 0;
   const tenantPathSeg = resolvedTenantId ?? ':tenantId';
 
-  // Step 1: For each Broker node — if no daemon site exists, add createTenant + createSite
+  // Step 1: For each Broker node — if no site row is bound to this broker node,
+  // add createTenant + createSite. This replaces old broker.kind matching so
+  // multiple same-kind brokers can coexist in one SiteGroup.
   for (const broker of brokerNodes) {
     const data = broker.data as { kind?: string; throughput?: string };
     const kind = data.kind ?? 'mosquitto';
     const throughput = data.throughput ?? 'low';
 
-    const matchingSite = daemonState.sites.find(
-      (s) => s.broker?.kind === kind,
+    const matchingExistingSite = existingSites.find(
+      (s) => s.canvasNodeId === broker.id,
     );
+    const matchingSite =
+      matchingExistingSite?.controlaiTenantId && matchingExistingSite.controlaiSiteId
+        ? daemonState.sites.find(
+            (s) =>
+              s.tenantId === matchingExistingSite.controlaiTenantId &&
+              s.id === matchingExistingSite.controlaiSiteId,
+          )
+        : null;
 
     if (!matchingSite) {
       // Need to create tenant first (only once)
@@ -152,6 +167,8 @@ export function synthesizePlan(
           broker.id,
         ),
       );
+      // We intentionally use op.nodeId to thread the broker canvas node id
+      // through commit so the Site row can be upserted by node binding.
 
       ops.push(
         makeOp(
@@ -178,11 +195,17 @@ export function synthesizePlan(
       : null;
 
     if (connectedBroker) {
-      const existingSite = daemonState.sites.find(
-        (s) =>
-          s.broker?.kind ===
-          ((connectedBroker.data as { kind?: string }).kind ?? 'mosquitto'),
+      const boundExistingSite = existingSites.find(
+        (s) => s.canvasNodeId === connectedBroker.id,
       );
+      const existingSite =
+        boundExistingSite?.controlaiTenantId && boundExistingSite.controlaiSiteId
+          ? daemonState.sites.find(
+              (s) =>
+                s.tenantId === boundExistingSite.controlaiTenantId &&
+                s.id === boundExistingSite.controlaiSiteId,
+            )
+          : null;
       if (
         existingSite &&
         existingSite.ingest?.direction !== direction

@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import { stream as honoStream } from 'hono/streaming';
 import pino from 'pino';
 import { startGateway, stopGateway, gatewayStatus, simulatorEvents } from './manager.js';
@@ -8,6 +9,14 @@ import type { GatewayStatusEvent, GatewayOutboxEvent } from './manager.js';
 const logger = pino({ name: 'simulator-routes' });
 
 export const app = new Hono();
+
+app.use(
+  '*',
+  cors({
+    origin: (process.env.CORS_ORIGIN ?? 'http://localhost:3000').split(','),
+    credentials: true,
+  }),
+);
 
 // ─── Gateway control ──────────────────────────────────────────────────────────
 
@@ -67,7 +76,9 @@ app.get('/events', (c) => {
       void stream.write(': keep-alive\n\n');
     }, 30_000);
 
-    await stream.close();
+    await new Promise<void>((resolve) => {
+      stream.onAbort(() => resolve());
+    });
     simulatorEvents.off('gatewayStatus', onStatus);
     clearInterval(keepAlive);
   });
@@ -103,7 +114,11 @@ app.get('/gateways/:id/outbox', async (c) => {
       void stream.write(': keep-alive\n\n');
     }, 30_000);
 
-    await stream.close();
+    // Hold the SSE open until the client disconnects or the stream is aborted.
+    await new Promise<void>((resolve) => {
+      stream.onAbort(() => resolve());
+    });
+
     simulatorEvents.off(`gatewayOutbox:${id}`, onOutbox);
     clearInterval(keepAlive);
   });

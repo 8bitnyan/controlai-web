@@ -78,19 +78,36 @@ function MessagePane({ title, messages, connStatus, picker }: PaneProps) {
         <ConnectionPill status={connStatus} />
         <div className="flex-1">{picker}</div>
       </div>
-      <div ref={listRef} className="flex-1 overflow-y-auto text-xs font-mono space-y-0.5">
+      <div ref={listRef} className="flex-1 overflow-y-auto text-xs font-mono space-y-1 pr-1">
         {messages.length === 0 ? (
           <div className="text-muted-foreground py-2 text-center">No messages yet</div>
         ) : (
           messages.map((m) => (
-            <div key={m.id} className="flex gap-2 hover:bg-muted/30 rounded px-1">
-              <span className="text-muted-foreground shrink-0 w-20">
+            <div
+              key={m.id}
+              className="group grid grid-cols-[auto_1fr_auto] gap-x-2 gap-y-0.5 items-start hover:bg-muted/30 rounded px-1 py-0.5"
+            >
+              <span className="text-muted-foreground shrink-0 tabular-nums">
                 {new Date(m.ts).toLocaleTimeString()}
               </span>
-              <span className="text-muted-foreground shrink-0 truncate max-w-[120px]" title={m.topic}>
+              <span className="text-muted-foreground break-all" title={m.topic}>
                 {m.topic}
               </span>
-              <span className="truncate text-foreground">{m.summary}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard.writeText(
+                    JSON.stringify({ ts: m.ts, topic: m.topic, summary: m.summary }),
+                  );
+                }}
+                className="opacity-0 group-hover:opacity-100 text-[10px] text-muted-foreground hover:text-foreground transition-opacity shrink-0"
+                title="Copy raw"
+              >
+                copy
+              </button>
+              <span className="col-start-2 col-span-2 text-foreground break-all whitespace-pre-wrap">
+                {m.summary}
+              </span>
             </div>
           ))
         )}
@@ -250,10 +267,26 @@ export function SensorIoStream({ orgId, siteGroupId }: SensorIoStreamProps) {
 
               if (topicPrefix && !data.topic.startsWith(topicPrefix)) return;
 
-              const summary =
-                typeof data.payload === 'object' && data.payload !== null
-                  ? JSON.stringify(data.payload).slice(0, 80)
-                  : String(data.payload ?? '').slice(0, 80);
+              // Format inbound payload — prefer compact readings line when present
+              let summary: string;
+              if (typeof data.payload === 'object' && data.payload !== null) {
+                const p = data.payload as Record<string, unknown>;
+                const readings = p.readings as
+                  | Array<{ sensorId?: string; value?: number; ts?: number }>
+                  | undefined;
+                if (Array.isArray(readings) && readings.length > 0) {
+                  const head =
+                    p.type ? String(p.type) : Object.keys(p).slice(0, 3).join(',');
+                  const r = readings
+                    .map((x) => `${x.sensorId ?? '?'}=${typeof x.value === 'number' ? x.value.toFixed(3) : x.value}`)
+                    .join(' ');
+                  summary = `${head} ${r}`;
+                } else {
+                  summary = JSON.stringify(data.payload);
+                }
+              } else {
+                summary = String(data.payload ?? '');
+              }
 
               appendInbound({
                 id: crypto.randomUUID(),

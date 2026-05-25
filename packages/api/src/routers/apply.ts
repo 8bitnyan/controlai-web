@@ -129,8 +129,22 @@ export const applyRouter = router({
       const site = await ctx.prisma.site.findFirst({
         where: { siteGroupId: input.siteGroupId },
       });
+      const existingSites = await ctx.prisma.site.findMany({
+        where: { siteGroupId: input.siteGroupId },
+        select: {
+          canvasNodeId: true,
+          controlaiTenantId: true,
+          controlaiSiteId: true,
+        },
+      });
 
-      const plan = synthesizePlan(nodes, edges, daemonState, site?.controlaiTenantId ?? null);
+      const plan = synthesizePlan(
+        nodes,
+        edges,
+        daemonState,
+        site?.controlaiTenantId ?? null,
+        existingSites,
+      );
 
       cachePlan(plan);
 
@@ -187,7 +201,21 @@ export const applyRouter = router({
       const daemonState = await fetchDaemonState(sg.project.instance);
 
       const site = await ctx.prisma.site.findFirst({ where: { siteGroupId: input.siteGroupId } });
-      const recomputedPlan = synthesizePlan(nodes, edges, daemonState, site?.controlaiTenantId ?? null);
+      const existingSites = await ctx.prisma.site.findMany({
+        where: { siteGroupId: input.siteGroupId },
+        select: {
+          canvasNodeId: true,
+          controlaiTenantId: true,
+          controlaiSiteId: true,
+        },
+      });
+      const recomputedPlan = synthesizePlan(
+        nodes,
+        edges,
+        daemonState,
+        site?.controlaiTenantId ?? null,
+        existingSites,
+      );
 
       if (recomputedPlan.planHash !== plan.planHash) {
         throw new TRPCError({
@@ -235,23 +263,47 @@ export const applyRouter = router({
         // succeeds with 0 rows if no Site exists yet — auto-create one so
         // downstream flows (gateway.issueFromDaemon) can find it.
         if (op.type === 'createSite' && tenantId && siteId) {
+          const canvasNodeId = op.nodeId;
           const existing = await ctx.prisma.site.findFirst({
-            where: { siteGroupId: input.siteGroupId },
+            where: {
+              siteGroupId: input.siteGroupId,
+              canvasNodeId: canvasNodeId ?? null,
+            },
           });
           if (existing) {
             await ctx.prisma.site.update({
               where: { id: existing.id },
-              data: { controlaiTenantId: tenantId, controlaiSiteId: siteId },
+              data: {
+                controlaiTenantId: tenantId,
+                controlaiSiteId: siteId,
+                canvasNodeId: canvasNodeId ?? existing.canvasNodeId,
+              },
             });
           } else {
             await ctx.prisma.site.create({
               data: {
                 siteGroupId: input.siteGroupId,
                 name: sg.name,
+                canvasNodeId: canvasNodeId ?? null,
                 controlaiTenantId: tenantId,
                 controlaiSiteId: siteId,
               },
             });
+          }
+
+          type DaemonTenantRaw = { Domain?: string; domain?: string };
+          const tenant = await callDaemon<DaemonTenantRaw>(instance, `/v1/tenants/${tenantId}`);
+          const domain = (tenant.Domain ?? tenant.domain ?? '').trim();
+          if (domain) {
+            await ctx.prisma.site.updateMany({
+              where: {
+                siteGroupId: input.siteGroupId,
+                canvasNodeId: canvasNodeId ?? null,
+              },
+              data: { tlsServername: `${siteId}.${tenantId}.${domain}` },
+            });
+          } else {
+            console.warn(`[apply.commit] tenant domain empty; skipping site tlsServername stamp (tenant=${tenantId})`);
           }
         }
 

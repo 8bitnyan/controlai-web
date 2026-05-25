@@ -207,6 +207,7 @@ model SiteGroup {
 model Site {
   id                String  @id @default(cuid())
   siteGroupId       String
+  canvasNodeId      String?
   name              String
   brokerKind        String? // 'MOSQUITTO' | 'EMQX'
   ingestDirection   String? // 'UNI' | 'BI'
@@ -216,6 +217,7 @@ model Site {
   controlaiSiteId   String? // null until Apply provisions the daemon site
   mqttCert          String? // PEM client cert issued by Apply issueCert op
   mqttKey           String? // PEM private key (stored encrypted in practice)
+  tlsServername     String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -223,6 +225,7 @@ model Site {
   siteGroup SiteGroup @relation(fields: [siteGroupId], references: [id], onDelete: Cascade)
 
   @@index([siteGroupId])
+  @@index([siteGroupId, canvasNodeId])
 }
 
 // ─── AuditLog ─────────────────────────────────────────────────────────────────
@@ -299,6 +302,9 @@ model Gateway {
   kind                String    // 'simulator' | 'physical'
   mode                String    // 'cbor-modules-cloud' | 'json'
   endpointURL         String    // e.g. "mqtts://broker.example.com:8883"
+  tlsServername       String?   // SNI ServerName override
+  brokerHost          String?   // TCP connect host override
+  brokerPort          Int?      // TCP connect port override
   groupId             String    // modules_cloud GROUP_ID — used as CN in cert and topic segment
   clientId            String    // MQTT client id — for cbor mode this is also EDGE_NODE_ID
   rootCaPemEnc        String    // AES-256-GCM encrypted PEM via crypto.ts encryptToken

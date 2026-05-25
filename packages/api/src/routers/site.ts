@@ -1,4 +1,5 @@
 import { TRPCError } from '@trpc/server';
+import { z } from 'zod';
 import { router, orgProcedure, ownerAdminProcedure } from '../trpc';
 import { writeAudit } from '../lib/audit-writer';
 import {
@@ -23,6 +24,62 @@ export const siteRouter = router({
       return ctx.prisma.site.findMany({
         where: { siteGroupId: input.siteGroupId },
         orderBy: { createdAt: 'asc' },
+        select: {
+          id: true,
+          siteGroupId: true,
+          canvasNodeId: true,
+          name: true,
+          brokerKind: true,
+          ingestDirection: true,
+          throughputTier: true,
+          retentionPeriod: true,
+          controlaiTenantId: true,
+          controlaiSiteId: true,
+          tlsServername: true,
+          createdAt: true,
+          updatedAt: true,
+          mqttCert: true,
+        },
+      }).then((sites) =>
+        sites.map((site) => ({
+          ...site,
+          hasMqttCert: Boolean(site.mqttCert),
+          mqttCert: undefined,
+        })),
+      );
+    }),
+
+  bind: ownerAdminProcedure
+    .input(z.object({ siteId: z.string().cuid(), canvasNodeId: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const site = await ctx.prisma.site.findUnique({
+        where: { id: input.siteId },
+        include: { siteGroup: { include: { project: true } } },
+      });
+      if (!site || site.siteGroup.project.orgId !== ctx.orgId!) {
+        throw new TRPCError({ code: 'FORBIDDEN' });
+      }
+
+      return ctx.prisma.site.update({
+        where: { id: input.siteId },
+        data: { canvasNodeId: input.canvasNodeId },
+      });
+    }),
+
+  unbind: ownerAdminProcedure
+    .input(z.object({ siteId: z.string().cuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const site = await ctx.prisma.site.findUnique({
+        where: { id: input.siteId },
+        include: { siteGroup: { include: { project: true } } },
+      });
+      if (!site || site.siteGroup.project.orgId !== ctx.orgId!) {
+        throw new TRPCError({ code: 'FORBIDDEN' });
+      }
+
+      return ctx.prisma.site.update({
+        where: { id: input.siteId },
+        data: { canvasNodeId: null },
       });
     }),
 

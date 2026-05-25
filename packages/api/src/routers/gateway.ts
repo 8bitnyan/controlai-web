@@ -6,7 +6,7 @@ import { writeAudit } from '../lib/audit-writer';
 import { encryptToken, decryptToken } from '../lib/crypto';
 import { callDaemon } from '../lib/daemon-client';
 import { simStart, simStop, simStatus, SimulatorError } from '../lib/simulator-client';
-import type { GatewayDTO, SensorConfig } from '@controlai-web/shared-types';
+import type { GatewayDTO, SensorConfig, DetectBrokerEndpointResult } from '@controlai-web/shared-types';
 
 const STREAM_JWT_SECRET_RAW = process.env.STREAM_JWT_SECRET;
 const SIMULATOR_PUBLIC_URL =
@@ -29,6 +29,9 @@ const BaseGatewayInput = z.object({
   kind: z.enum(['simulator', 'physical']),
   mode: z.enum(['cbor-modules-cloud', 'json']),
   endpointURL: z.string().url(),
+  tlsServername: z.string().optional(),
+  brokerHost: z.string().optional(),
+  brokerPort: z.number().int().min(1).max(65535).optional(),
   groupId: z.string().min(1),
   clientId: z.string().min(1),
   rootCaPem: z.string().min(1),
@@ -46,6 +49,9 @@ function toDTO(row: {
   kind: string;
   mode: string;
   endpointURL: string;
+  tlsServername: string | null;
+  brokerHost: string | null;
+  brokerPort: number | null;
   groupId: string;
   clientId: string;
   sensors: unknown;
@@ -61,6 +67,9 @@ function toDTO(row: {
     kind: row.kind as GatewayDTO['kind'],
     mode: row.mode as GatewayDTO['mode'],
     endpointURL: row.endpointURL,
+    tlsServername: row.tlsServername,
+    brokerHost: row.brokerHost,
+    brokerPort: row.brokerPort,
     groupId: row.groupId,
     clientId: row.clientId,
     sensors: row.sensors as SensorConfig[],
@@ -118,6 +127,9 @@ export const gatewayRouter = router({
           kind: input.kind,
           mode: input.mode,
           endpointURL: input.endpointURL,
+          tlsServername: input.tlsServername ?? null,
+          brokerHost: input.brokerHost ?? null,
+          brokerPort: input.brokerPort ?? null,
           groupId: input.groupId,
           clientId: input.clientId,
           rootCaPemEnc: encryptToken(input.rootCaPem),
@@ -148,6 +160,9 @@ export const gatewayRouter = router({
         gatewayId: z.string().cuid(),
         label: z.string().min(1).max(128).optional(),
         endpointURL: z.string().url().optional(),
+        tlsServername: z.string().nullable().optional(),
+        brokerHost: z.string().nullable().optional(),
+        brokerPort: z.number().int().min(1).max(65535).nullable().optional(),
         groupId: z.string().min(1).optional(),
         clientId: z.string().min(1).optional(),
         rootCaPem: z.string().min(1).optional(),
@@ -182,6 +197,13 @@ export const gatewayRouter = router({
         data: {
           ...(input.label !== undefined ? { label: input.label } : {}),
           ...(input.endpointURL !== undefined ? { endpointURL: input.endpointURL } : {}),
+          ...(input.tlsServername !== undefined
+            ? { tlsServername: input.tlsServername === '' ? null : input.tlsServername }
+            : {}),
+          ...(input.brokerHost !== undefined
+            ? { brokerHost: input.brokerHost === '' ? null : input.brokerHost }
+            : {}),
+          ...(input.brokerPort !== undefined ? { brokerPort: input.brokerPort } : {}),
           ...(input.groupId !== undefined ? { groupId: input.groupId } : {}),
           ...(input.clientId !== undefined ? { clientId: input.clientId } : {}),
           ...(input.rootCaPem !== undefined ? { rootCaPemEnc: encryptToken(input.rootCaPem) } : {}),
@@ -193,6 +215,40 @@ export const gatewayRouter = router({
       });
 
       return toDTO(updated);
+    }),
+
+  detectBrokerEndpoint: orgProcedure
+    .input(z.object({ orgId: z.string().cuid(), siteGroupId: z.string().cuid() }))
+    .query(async ({ ctx, input }): Promise<DetectBrokerEndpointResult> => {
+      const site = await ctx.prisma.site.findFirst({
+        where: {
+          siteGroupId: input.siteGroupId,
+          siteGroup: { project: { orgId: ctx.orgId! } },
+        },
+        include: { siteGroup: { include: { project: { include: { instance: true } } } } },
+      });
+      if (!site || !site.controlaiTenantId || !site.controlaiSiteId) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'No provisioned site found in this SiteGroup' });
+      }
+
+      const tenant = await callDaemon<{ Domain?: string; domain?: string }>(
+        site.siteGroup.project.instance,
+        `/v1/tenants/${site.controlaiTenantId}`,
+      );
+      const domain = (tenant.Domain ?? tenant.domain ?? '').trim();
+      if (!domain) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Tenant domain is empty' });
+      }
+
+      const brokerHost = new URL(site.siteGroup.project.instance.baseURL).hostname;
+      const brokerPort = 8883;
+      const tlsServername = `${site.controlaiSiteId}.${site.controlaiTenantId}.${domain}`;
+      return {
+        brokerHost,
+        brokerPort,
+        tlsServername,
+        endpointURL: `mqtts://${brokerHost}:${brokerPort}`,
+      };
     }),
 
   /** Delete a gateway. Stops it first if running (NDEATH published by simulator). */

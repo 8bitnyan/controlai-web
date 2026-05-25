@@ -23,6 +23,9 @@ export interface GatewayDTO {
   kind: GatewayKind;
   mode: GatewayMode;
   endpointURL: string;
+  tlsServername: string | null;
+  brokerHost: string | null;
+  brokerPort: number | null;
   groupId: string;
   clientId: string;
   sensors: SensorConfig[];
@@ -30,6 +33,13 @@ export interface GatewayDTO {
   desiredState: 'stopped' | 'running';
   lastStatus: GatewayStatus;
   lastError: string | null;
+}
+
+export interface DetectBrokerEndpointResult {
+  brokerHost: string;
+  brokerPort: number;
+  tlsServername: string;
+  endpointURL: string;
 }
 
 // modules_cloud-main CBOR payload schema (top-level fields):
