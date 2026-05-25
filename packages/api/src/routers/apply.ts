@@ -25,6 +25,66 @@ function getValidPlan(planId: string): ReturnType<typeof synthesizePlan> | null 
   return entry.plan;
 }
 
+/**
+ * Fetch the full daemon state (tenants + sites) and normalize Go capitalized
+ * field names to camelCase. Both preview and commit MUST use this so the
+ * planHash they compute is identical (otherwise commit throws "Graph changed
+ * since preview").
+ */
+async function fetchDaemonState(
+  instance: Parameters<typeof callDaemon>[0],
+): Promise<DaemonState> {
+  const state: DaemonState = { tenants: [], sites: [] };
+  try {
+    type DaemonTenantRaw = { ID?: string; id?: string; Name?: string; name?: string };
+    const rawTenants = await callDaemon<DaemonTenantRaw[]>(instance, '/v1/tenants');
+    state.tenants = (rawTenants ?? [])
+      .map((t) => ({ id: t.ID ?? t.id ?? '', name: t.Name ?? t.name }))
+      .filter((t) => t.id);
+
+    for (const tenant of state.tenants) {
+      type DaemonSiteRaw = {
+        ID?: string;
+        id?: string;
+        BrokerKind?: string;
+        Broker?: { Kind?: string; kind?: string };
+        broker?: { kind?: string };
+        Direction?: string;
+        Ingest?: { Direction?: string; direction?: string };
+        ingest?: { direction?: string };
+        Throughput?: string;
+        throughput?: string;
+      };
+      const rawSites = await callDaemon<DaemonSiteRaw[]>(
+        instance,
+        `/v1/tenants/${tenant.id}/sites`,
+      );
+      if (rawSites) {
+        for (const s of rawSites) {
+          const siteId = s.ID ?? s.id ?? '';
+          if (!siteId) continue;
+          const brokerKind =
+            s.BrokerKind ?? s.Broker?.Kind ?? s.Broker?.kind ?? s.broker?.kind;
+          const direction =
+            s.Direction ?? s.Ingest?.Direction ?? s.Ingest?.direction ?? s.ingest?.direction;
+          const throughput = s.Throughput ?? s.throughput;
+          state.sites.push({
+            id: siteId,
+            tenantId: tenant.id,
+            broker: brokerKind ? { kind: brokerKind } : undefined,
+            ingest: direction ? { direction } : undefined,
+            throughput,
+          });
+        }
+      }
+    }
+  } catch {
+    // Daemon unreachable — treat as empty state
+    return { tenants: [], sites: [] };
+  }
+  return state;
+}
+
 export const applyRouter = router({
   /**
    * Dry-run: load active NodeConfig, fetch daemon state, synthesize plan.
@@ -59,56 +119,9 @@ export const applyRouter = router({
 
       const instance = sg.project.instance;
 
-      // Fetch current daemon state. Daemon returns Go-style capitalized
-      // field names (ID, Name, Broker, Ingest, …) — normalize to camelCase.
-      let daemonState: DaemonState = { tenants: [], sites: [] };
-      try {
-        type DaemonTenantRaw = { ID?: string; id?: string; Name?: string; name?: string };
-        const rawTenants = await callDaemon<DaemonTenantRaw[]>(instance, '/v1/tenants');
-        daemonState.tenants = (rawTenants ?? [])
-          .map((t) => ({ id: t.ID ?? t.id ?? '', name: t.Name ?? t.name }))
-          .filter((t) => t.id);
-
-        for (const tenant of daemonState.tenants) {
-          type DaemonSiteRaw = {
-            ID?: string;
-            id?: string;
-            BrokerKind?: string;
-            Broker?: { Kind?: string; kind?: string };
-            broker?: { kind?: string };
-            Direction?: string;
-            Ingest?: { Direction?: string; direction?: string };
-            ingest?: { direction?: string };
-            Throughput?: string;
-            throughput?: string;
-          };
-          const rawSites = await callDaemon<DaemonSiteRaw[]>(
-            instance,
-            `/v1/tenants/${tenant.id}/sites`,
-          );
-          if (rawSites) {
-            for (const s of rawSites) {
-              const siteId = s.ID ?? s.id ?? '';
-              if (!siteId) continue;
-              const brokerKind =
-                s.BrokerKind ?? s.Broker?.Kind ?? s.Broker?.kind ?? s.broker?.kind;
-              const direction =
-                s.Direction ?? s.Ingest?.Direction ?? s.Ingest?.direction ?? s.ingest?.direction;
-              const throughput = s.Throughput ?? s.throughput;
-              daemonState.sites.push({
-                id: siteId,
-                tenantId: tenant.id,
-                broker: brokerKind ? { kind: brokerKind } : undefined,
-                ingest: direction ? { direction } : undefined,
-                throughput,
-              });
-            }
-          }
-        }
-      } catch {
-        // Daemon unreachable — treat as empty state (will create all resources)
-        daemonState = { tenants: [], sites: [] };
-      }
+      // Fetch current daemon state via the shared helper so preview and
+      // commit compute identical planHashes.
+      const daemonState = await fetchDaemonState(instance);
 
       const nodes = nodeConfig.nodes as unknown as Array<{ id: string; type: string; data: Record<string, unknown> }>;
       const edges = nodeConfig.edges as unknown as Array<{ id: string; source: string; target: string; sourceHandle?: string; targetHandle?: string }>;
@@ -171,18 +184,7 @@ export const applyRouter = router({
       const nodes = nodeConfig.nodes as unknown as Array<{ id: string; type: string; data: Record<string, unknown> }>;
       const edges = nodeConfig.edges as unknown as Array<{ id: string; source: string; target: string }>;
 
-      let daemonState: DaemonState = { tenants: [], sites: [] };
-      try {
-        const rawTenants = await callDaemon<Array<{ ID?: string; id?: string }>>(
-          sg.project.instance,
-          '/v1/tenants',
-        );
-        daemonState.tenants = (rawTenants ?? [])
-          .map((t) => ({ id: t.ID ?? t.id ?? '' }))
-          .filter((t) => t.id);
-      } catch {
-        daemonState = { tenants: [], sites: [] };
-      }
+      const daemonState = await fetchDaemonState(sg.project.instance);
 
       const site = await ctx.prisma.site.findFirst({ where: { siteGroupId: input.siteGroupId } });
       const recomputedPlan = synthesizePlan(nodes, edges, daemonState, site?.controlaiTenantId ?? null);
@@ -228,15 +230,29 @@ export const applyRouter = router({
           break;
         }
 
-        // After createSite, store daemon IDs in Postgres
+        // After createSite, ensure a Postgres Site row exists for this
+        // SiteGroup and stamp the daemon IDs onto it. updateMany silently
+        // succeeds with 0 rows if no Site exists yet — auto-create one so
+        // downstream flows (gateway.issueFromDaemon) can find it.
         if (op.type === 'createSite' && tenantId && siteId) {
-          await ctx.prisma.site.updateMany({
+          const existing = await ctx.prisma.site.findFirst({
             where: { siteGroupId: input.siteGroupId },
-            data: {
-              controlaiTenantId: tenantId,
-              controlaiSiteId: siteId,
-            },
           });
+          if (existing) {
+            await ctx.prisma.site.update({
+              where: { id: existing.id },
+              data: { controlaiTenantId: tenantId, controlaiSiteId: siteId },
+            });
+          } else {
+            await ctx.prisma.site.create({
+              data: {
+                siteGroupId: input.siteGroupId,
+                name: sg.name,
+                controlaiTenantId: tenantId,
+                controlaiSiteId: siteId,
+              },
+            });
+          }
         }
 
         // Poll reconciler after mutating ops (not issueCert — it's async anyway)

@@ -48,7 +48,22 @@ export async function callDaemon<T>(
       throw new DaemonError(response.status, body, url);
     }
 
-    return (await response.json()) as T;
+    // Mutating endpoints (PATCH /sites/{id}, etc.) may legitimately return
+    // 204 No Content or an empty body. Don't blow up trying to parse JSON.
+    if (response.status === 204) return null as T;
+    const text = await response.text();
+    if (text.length === 0) return null as T;
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      // Body present but not JSON — surface a clearer error than "Unexpected
+      // end of JSON input" so callers can debug.
+      throw new DaemonError(
+        response.status,
+        `Non-JSON body (${text.length} bytes): ${text.slice(0, 200)}`,
+        url,
+      );
+    }
   } finally {
     clearTimeout(timeoutId);
   }

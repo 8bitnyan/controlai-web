@@ -341,6 +341,85 @@ export const gatewayRouter = router({
       };
     }),
 
+  /**
+   * Preview-issue PEMs from the daemon WITHOUT persisting to a Gateway row.
+   * Used by the create flow so user can pre-fill the 3 textareas before saving.
+   * Picks the first Site of the SiteGroup (matches Apply's behavior).
+   */
+  previewIssueFromDaemon: orgProcedure
+    .input(
+      z.object({
+        orgId: z.string().cuid(),
+        siteGroupId: z.string().cuid(),
+        gatewayCN: z.string().min(1).max(63),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const site = await ctx.prisma.site.findFirst({
+        where: {
+          siteGroupId: input.siteGroupId,
+          siteGroup: { project: { orgId: ctx.orgId! } },
+        },
+        include: { siteGroup: { include: { project: { include: { instance: true } } } } },
+      });
+      if (!site) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'No site found in this SiteGroup' });
+      }
+      if (!site.controlaiTenantId || !site.controlaiSiteId) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Site must be provisioned (Apply) before issuing gateway certs.',
+        });
+      }
+
+      interface PkiCertResponse {
+        cert_pem: string;
+        key_pem: string;
+        fingerprint: string;
+        not_after: string;
+        ca_pem?: string;
+      }
+
+      const instance = site.siteGroup.project.instance;
+      const pkiPath = `/v1/tenants/${site.controlaiTenantId}/sites/${site.controlaiSiteId}/pki/certs`;
+      let certResp: PkiCertResponse;
+      try {
+        certResp = await callDaemon<PkiCertResponse>(instance, pkiPath, {
+          method: 'POST',
+          body: JSON.stringify({ gateway: input.gatewayCN }),
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: `Daemon PKI error: ${msg}` });
+      }
+      if (!certResp.cert_pem || !certResp.key_pem) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Daemon did not return cert_pem/key_pem',
+        });
+      }
+
+      let rootCaPem = certResp.ca_pem ?? '';
+      if (!rootCaPem) {
+        const caPath = `/v1/tenants/${site.controlaiTenantId}/pki/ca`;
+        try {
+          const caResp = await callDaemon<{ ca_pem: string }>(instance, caPath);
+          rootCaPem = caResp.ca_pem;
+        } catch {
+          // CA endpoint absent — return blank so user can paste manually
+          rootCaPem = '';
+        }
+      }
+
+      return {
+        rootCaPem,
+        clientCertPem: certResp.cert_pem,
+        clientKeyPem: certResp.key_pem,
+        fingerprint: certResp.fingerprint,
+        notAfter: certResp.not_after,
+      };
+    }),
+
   /** Start a gateway — sets desiredState=running and forwards to simulator. */
   start: orgProcedure
     .input(z.object({ orgId: z.string().cuid(), gatewayId: z.string().cuid() }))

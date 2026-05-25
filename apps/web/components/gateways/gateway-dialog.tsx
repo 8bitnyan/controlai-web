@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { trpc } from '@/lib/trpc/client';
 import type { GatewayDTO, SensorConfig } from '@controlai-web/shared-types';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, KeyRound, Loader2 } from 'lucide-react';
 
 interface GatewayDialogProps {
   open: boolean;
@@ -64,6 +64,19 @@ export function GatewayDialog({ open, onClose, orgId, siteGroupId, existing }: G
     onSuccess: () => {
       void utils.gateway.list.invalidate();
       onClose();
+    },
+    onError: (e) => setError(e.message),
+  });
+  const previewIssueMutation = trpc.gateway.previewIssueFromDaemon.useMutation({
+    onSuccess: (data) => {
+      if (data.rootCaPem) setRootCaPem(data.rootCaPem);
+      setClientCertPem(data.clientCertPem);
+      setClientKeyPem(data.clientKeyPem);
+      setError(
+        data.rootCaPem
+          ? null
+          : 'Cert + key issued. Daemon did not return root CA — paste it manually above.',
+      );
     },
     onError: (e) => setError(e.message),
   });
@@ -244,6 +257,29 @@ export function GatewayDialog({ open, onClose, orgId, siteGroupId, existing }: G
                     Gateway is running — stop it before changing credentials.
                   </div>
                 )}
+                <div className="flex items-center justify-between rounded-md border border-dashed bg-muted/30 px-3 py-2">
+                  <div className="text-xs text-muted-foreground">
+                    Have the controlai daemon issue a cert for <code className="font-mono">{groupId || '<groupId>'}</code>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={isRunning || !groupId || previewIssueMutation.isPending}
+                    onClick={() => {
+                      setError(null);
+                      previewIssueMutation.mutate({ orgId, siteGroupId, gatewayCN: groupId });
+                    }}
+                    title={!groupId ? 'Set groupId in the Identity tab first' : isRunning ? 'Stop the gateway first' : 'Issue from daemon'}
+                  >
+                    {previewIssueMutation.isPending ? (
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    ) : (
+                      <KeyRound className="h-3 w-3 mr-1" />
+                    )}
+                    Issue from daemon
+                  </Button>
+                </div>
                 <div className="space-y-1">
                   <Label htmlFor="gw-rootca">Root CA (PEM)</Label>
                   <textarea
