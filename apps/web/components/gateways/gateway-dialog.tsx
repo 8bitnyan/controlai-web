@@ -57,6 +57,7 @@ export function GatewayDialog({ open, onClose, orgId, siteGroupId, existing }: G
   const [rootCaPem, setRootCaPem] = useState('');
   const [clientCertPem, setClientCertPem] = useState('');
   const [clientKeyPem, setClientKeyPem] = useState('');
+  const [manualCertOpen, setManualCertOpen] = useState(false);
 
   // Sensors
   const [sensors, setSensors] = useState<SensorConfig[]>(existing?.sensors ?? []);
@@ -105,11 +106,27 @@ export function GatewayDialog({ open, onClose, orgId, siteGroupId, existing }: G
   });
   const [isDetectingBrokerEndpoint, setIsDetectingBrokerEndpoint] = useState(false);
 
+  const pemRegex = /-----BEGIN[^-]+-----[\s\S]+?-----END[^-]+-----/;
+  const pemValues = [rootCaPem, clientCertPem, clientKeyPem].map((value) => value.trim());
+  const filledPemCount = pemValues.filter((value) => value.length > 0).length;
+  const pemError =
+    filledPemCount > 0 && filledPemCount < 3
+      ? 'rootCa / clientCert / clientKey 세 가지 모두 함께 입력해야 합니다.'
+      : pemValues.some((value) => value.length > 0 && !pemRegex.test(value))
+        ? '올바른 PEM 형식이 아닙니다.'
+        : null;
+
   const isRunning = existing?.lastStatus !== 'stopped' && existing?.lastStatus !== undefined;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (pemError) {
+      setError(pemError);
+      setTab('credentials');
+      return;
+    }
 
     if (existing) {
       const brokerHostValue = brokerHost.trim() || null;
@@ -420,43 +437,58 @@ export function GatewayDialog({ open, onClose, orgId, siteGroupId, existing }: G
                     Issue from daemon
                   </Button>
                 </div>
-                <div className="space-y-1">
-                  <Label htmlFor="gw-rootca">Root CA (PEM)</Label>
-                  <textarea
-                    id="gw-rootca"
-                    value={rootCaPem}
-                    onChange={(e) => setRootCaPem(e.target.value)}
-                    disabled={isRunning}
-                    rows={4}
-                    placeholder="-----BEGIN CERTIFICATE-----"
-                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs font-mono shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="gw-cert">Client Certificate (PEM)</Label>
-                  </div>
-                  <textarea
-                    id="gw-cert"
-                    value={clientCertPem}
-                    onChange={(e) => setClientCertPem(e.target.value)}
-                    disabled={isRunning}
-                    rows={4}
-                    placeholder="-----BEGIN CERTIFICATE-----"
-                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs font-mono shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="gw-key">Client Key (PEM)</Label>
-                  <textarea
-                    id="gw-key"
-                    value={clientKeyPem}
-                    onChange={(e) => setClientKeyPem(e.target.value)}
-                    disabled={isRunning}
-                    rows={4}
-                    placeholder="-----BEGIN PRIVATE KEY-----"
-                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs font-mono shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
-                  />
+                <div className="rounded-md border">
+                  <button
+                    type="button"
+                    onClick={() => setManualCertOpen((prev) => !prev)}
+                    className="flex w-full items-center justify-between px-3 py-2 text-sm font-medium"
+                  >
+                    <span>cert 수동 입력 (고급)</span>
+                    {manualCertOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  </button>
+                  {manualCertOpen && (
+                    <div className="space-y-3 border-t px-3 py-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="gw-rootca">Root CA (PEM)</Label>
+                        <textarea
+                          id="gw-rootca"
+                          value={rootCaPem}
+                          onChange={(e) => setRootCaPem(e.target.value)}
+                          disabled={isRunning}
+                          rows={4}
+                          placeholder="-----BEGIN CERTIFICATE-----"
+                          className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs font-mono shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="gw-cert">Client Certificate (PEM)</Label>
+                        </div>
+                        <textarea
+                          id="gw-cert"
+                          value={clientCertPem}
+                          onChange={(e) => setClientCertPem(e.target.value)}
+                          disabled={isRunning}
+                          rows={4}
+                          placeholder="-----BEGIN CERTIFICATE-----"
+                          className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs font-mono shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="gw-key">Client Key (PEM)</Label>
+                        <textarea
+                          id="gw-key"
+                          value={clientKeyPem}
+                          onChange={(e) => setClientKeyPem(e.target.value)}
+                          disabled={isRunning}
+                          rows={4}
+                          placeholder="-----BEGIN PRIVATE KEY-----"
+                          className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs font-mono shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
+                        />
+                      </div>
+                      {pemError && <p className="text-xs text-destructive">{pemError}</p>}
+                    </div>
+                  )}
                 </div>
                 {existing && (
                   <p className="text-xs text-muted-foreground">

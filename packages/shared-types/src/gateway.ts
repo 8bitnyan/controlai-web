@@ -33,6 +33,7 @@ export interface GatewayDTO {
   desiredState: 'stopped' | 'running';
   lastStatus: GatewayStatus;
   lastError: string | null;
+  hasCerts: boolean;
 }
 
 export interface DetectBrokerEndpointResult {

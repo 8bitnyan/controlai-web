@@ -13,6 +13,9 @@ Multi-tenant web control plane for the [controlai](https://github.com/8bitnyan/c
 | Monorepo | pnpm workspaces + Turborepo |
 | Hosting | Vercel (web) + Neon (DB) |
 
+The web app can also provision STM32-based gateway boards over USB-CDC directly from
+desktop Chrome / Edge via the Web Serial API — see `apps/web/README.md`.
+
 ## Repo Layout
 
 ```

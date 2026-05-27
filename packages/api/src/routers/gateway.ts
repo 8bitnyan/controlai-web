@@ -1,3 +1,4 @@
+// See openspec/changes/add-gateway-board-provisioning/ for the board provisioning capability spec.
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { SignJWT } from 'jose';
@@ -6,6 +7,8 @@ import { writeAudit } from '../lib/audit-writer';
 import { encryptToken, decryptToken } from '../lib/crypto';
 import { callDaemon } from '../lib/daemon-client';
 import { simStart, simStop, simStatus, SimulatorError } from '../lib/simulator-client';
+import { pemToHexChunks } from '../lib/pem-to-hex';
+import { BOARD_PROVISION_SEQUENCE } from '../lib/board-cli-spec';
 import type { GatewayDTO, SensorConfig, DetectBrokerEndpointResult } from '@controlai-web/shared-types';
 
 const STREAM_JWT_SECRET_RAW = process.env.STREAM_JWT_SECRET;
@@ -59,6 +62,9 @@ function toDTO(row: {
   desiredState: string;
   lastStatus: string;
   lastError: string | null;
+  rootCaPemEnc: string | null;
+  clientCertPemEnc: string | null;
+  clientKeyPemEnc: string | null;
 }): GatewayDTO {
   return {
     id: row.id,
@@ -77,6 +83,7 @@ function toDTO(row: {
     desiredState: row.desiredState as GatewayDTO['desiredState'],
     lastStatus: row.lastStatus as GatewayDTO['lastStatus'],
     lastError: row.lastError,
+    hasCerts: !!row.rootCaPemEnc && !!row.clientCertPemEnc && !!row.clientKeyPemEnc,
   };
 }
 
@@ -616,5 +623,131 @@ export const gatewayRouter = router({
         outboxUrl: `${base}/gateways/${input.gatewayId}/outbox`,
         eventsUrl: `${base}/events`,
       };
+    }),
+
+  getProvisioningBundle: orgProcedure
+    .input(z.object({ orgId: z.string().cuid(), gatewayId: z.string().cuid() }))
+    .query(async ({ ctx, input }) => {
+      void BOARD_PROVISION_SEQUENCE;
+      const gw = await ctx.prisma.gateway.findFirst({
+        where: { id: input.gatewayId },
+        include: { siteGroup: { include: { project: true } } },
+      });
+      if (!gw || gw.siteGroup.project.orgId !== ctx.orgId) {
+        throw new TRPCError({ code: 'FORBIDDEN' });
+      }
+
+      void writeAudit(ctx.prisma, {
+        orgId: ctx.orgId!,
+        userId: ctx.userId,
+        action: 'gateway.provision-start',
+        targetId: input.gatewayId,
+        targetType: 'Gateway',
+        metadata: { gatewayId: input.gatewayId, outcome: 'INITIATED' },
+      });
+
+      if (!gw.rootCaPemEnc || !gw.clientCertPemEnc || !gw.clientKeyPemEnc) {
+        throw new TRPCError({
+          code: 'PRECONDITION_FAILED',
+          message:
+            '인증서가 아직 발급되지 않았습니다. 게이트웨이 편집에서 cert 발급 또는 수동 입력을 먼저 수행하세요.',
+        });
+      }
+
+      const rootCaHex = pemToHexChunks(decryptToken(gw.rootCaPemEnc), 400);
+      const clientCertHex = pemToHexChunks(decryptToken(gw.clientCertPemEnc), 400);
+      const clientKeyHex = pemToHexChunks(decryptToken(gw.clientKeyPemEnc), 400);
+
+      return {
+        groupId: gw.groupId,
+        endpointURL: gw.endpointURL,
+        rootCaHex,
+        clientCertHex,
+        clientKeyHex,
+      };
+    }),
+
+  recordProvisionSuccess: orgProcedure
+    .input(
+      z.object({
+        orgId: z.string().cuid(),
+        gatewayId: z.string().cuid(),
+        deviceSerial: z.string().optional(),
+        durationMs: z.number().int().nonnegative(),
+        completedSteps: z.array(z.string()),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const gw = await ctx.prisma.gateway.findFirst({
+        where: { id: input.gatewayId },
+        include: { siteGroup: { include: { project: true } } },
+      });
+      if (!gw || gw.siteGroup.project.orgId !== ctx.orgId) {
+        throw new TRPCError({ code: 'FORBIDDEN' });
+      }
+
+      await ctx.prisma.gateway.update({
+        where: { id: input.gatewayId },
+        data: {
+          lastProvisionedDeviceSerial: input.deviceSerial ?? null,
+          lastProvisionedAt: new Date(),
+        },
+      });
+
+      void writeAudit(ctx.prisma, {
+        orgId: ctx.orgId!,
+        userId: ctx.userId,
+        action: 'gateway.provision-success',
+        targetId: input.gatewayId,
+        targetType: 'Gateway',
+        metadata: {
+          gatewayId: input.gatewayId,
+          deviceSerial: input.deviceSerial ?? 'unknown',
+          durationMs: input.durationMs,
+          completedSteps: input.completedSteps,
+          outcome: 'SUCCESS',
+        },
+      });
+
+      return { ok: true as const };
+    }),
+
+  recordProvisionFailure: orgProcedure
+    .input(
+      z.object({
+        orgId: z.string().cuid(),
+        gatewayId: z.string().cuid(),
+        deviceSerial: z.string().optional(),
+        durationMs: z.number().int().nonnegative(),
+        stepReached: z.string(),
+        failureReason: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const gw = await ctx.prisma.gateway.findFirst({
+        where: { id: input.gatewayId },
+        include: { siteGroup: { include: { project: true } } },
+      });
+      if (!gw || gw.siteGroup.project.orgId !== ctx.orgId) {
+        throw new TRPCError({ code: 'FORBIDDEN' });
+      }
+
+      void writeAudit(ctx.prisma, {
+        orgId: ctx.orgId!,
+        userId: ctx.userId,
+        action: 'gateway.provision-failed',
+        targetId: input.gatewayId,
+        targetType: 'Gateway',
+        metadata: {
+          gatewayId: input.gatewayId,
+          deviceSerial: input.deviceSerial ?? 'unknown',
+          durationMs: input.durationMs,
+          stepReached: input.stepReached,
+          failureReason: input.failureReason,
+          outcome: 'FAILURE',
+        },
+      });
+
+      return { ok: true as const };
     }),
 });

@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { useParams } from 'next/navigation';
 import { trpc } from '@/lib/trpc/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { GatewayDTO, GatewayStatus } from '@controlai-web/shared-types';
 import { GatewayDialog } from './gateway-dialog';
-import { Plus, Play, Square, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Play, Square, Pencil, Trash2, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
 
 interface GatewaysClientProps {
   orgId: string;
@@ -27,6 +29,8 @@ function statusVariant(s: GatewayStatus): 'default' | 'secondary' | 'destructive
 }
 
 export function GatewaysClient({ orgId, siteGroupId }: GatewaysClientProps) {
+  const params = useParams<{ projectId: string }>();
+  const projectId = params?.projectId;
   const [newOpen, setNewOpen] = useState(false);
   const [editGateway, setEditGateway] = useState<GatewayDTO | null>(null);
 
@@ -119,6 +123,11 @@ export function GatewaysClient({ orgId, siteGroupId }: GatewaysClientProps) {
                           <Square className="h-3.5 w-3.5" />
                         </Button>
                       )}
+                      <Link href={`/orgs/${orgId}/projects/${projectId}/site-groups/${siteGroupId}/gateways/${gw.id}`}>
+                        <Button size="sm" variant="ghost" title="상세 / 보드에 설치">
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </Button>
+                      </Link>
                       <Button
                         size="sm"
                         variant="ghost"

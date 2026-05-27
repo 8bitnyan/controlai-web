@@ -315,6 +315,8 @@ model Gateway {
   desiredState        String    @default("stopped") // 'stopped' | 'running'
   lastStatus          String    @default("stopped") // last reported runtime status
   lastError           String?
+  lastProvisionedDeviceSerial String?
+  lastProvisionedAt   DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
