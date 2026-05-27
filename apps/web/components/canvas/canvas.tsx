@@ -52,7 +52,7 @@ interface CanvasProps {
   siteId?: string; // for SSE telemetry
 }
 
-export function Canvas({ orgId, projectId: _projectId, siteGroupId, siteId }: CanvasProps) {
+export function Canvas({ orgId, projectId, siteGroupId, siteId }: CanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition, deleteElements, fitView } = useReactFlow();
 
@@ -215,6 +215,17 @@ export function Canvas({ orgId, projectId: _projectId, siteGroupId, siteId }: Ca
 
   // Controlled Apply modal state (shared by Apply button + Re-run button)
   const [applyOpen, setApplyOpen] = useState(false);
+  const nodesWithUi = nodes.map((node) => node.type === 'broker'
+    ? {
+        ...node,
+        data: {
+          ...(node.data as Record<string, unknown>),
+          onShowSiteDetail: (siteId: string) => {
+            window.location.href = `/orgs/${orgId}/projects/${projectId}/site-groups/${siteGroupId}/sites?focusSite=${siteId}`;
+          },
+        },
+      }
+    : node);
 
   return (
     <CanvasContextProvider orgId={orgId} siteGroupId={siteGroupId}>
@@ -359,7 +370,7 @@ export function Canvas({ orgId, projectId: _projectId, siteGroupId, siteId }: Ca
           )}
           <ReactFlow
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            nodes={nodes as any}
+            nodes={nodesWithUi as any}
             edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}

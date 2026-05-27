@@ -251,6 +251,40 @@ export const gatewayRouter = router({
       };
     }),
 
+  detectBrokerEndpointForSite: orgProcedure
+    .input(z.object({ orgId: z.string().cuid(), siteId: z.string().cuid() }))
+    .query(async ({ ctx, input }): Promise<DetectBrokerEndpointResult> => {
+      const site = await ctx.prisma.site.findFirst({
+        where: {
+          id: input.siteId,
+          siteGroup: { project: { orgId: ctx.orgId! } },
+        },
+        include: { siteGroup: { include: { project: { include: { instance: true } } } } },
+      });
+      if (!site || !site.controlaiTenantId || !site.controlaiSiteId) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Provisioned site not found' });
+      }
+
+      const tenant = await callDaemon<{ Domain?: string; domain?: string }>(
+        site.siteGroup.project.instance,
+        `/v1/tenants/${site.controlaiTenantId}`,
+      );
+      const domain = (tenant.Domain ?? tenant.domain ?? '').trim();
+      if (!domain) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Tenant domain is empty' });
+      }
+
+      const brokerHost = new URL(site.siteGroup.project.instance.baseURL).hostname;
+      const brokerPort = 8883;
+      const tlsServername = `${site.controlaiSiteId}.${site.controlaiTenantId}.${domain}`;
+      return {
+        brokerHost,
+        brokerPort,
+        tlsServername,
+        endpointURL: `mqtts://${brokerHost}:${brokerPort}`,
+      };
+    }),
+
   /** Delete a gateway. Stops it first if running (NDEATH published by simulator). */
   delete: orgProcedure
     .input(z.object({ orgId: z.string().cuid(), gatewayId: z.string().cuid() }))

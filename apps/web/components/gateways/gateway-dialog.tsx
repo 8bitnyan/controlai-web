@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -45,6 +45,7 @@ export function GatewayDialog({ open, onClose, orgId, siteGroupId, existing }: G
   const [groupId, setGroupId] = useState(existing?.groupId ?? '');
   const [clientId, setClientId] = useState(existing?.clientId ?? '');
   const [endpointURL, setEndpointURL] = useState(existing?.endpointURL ?? '');
+  const [targetSiteId, setTargetSiteId] = useState('');
   const [brokerHost, setBrokerHost] = useState(existing?.brokerHost ?? '');
   const [brokerPort, setBrokerPort] = useState(existing?.brokerPort?.toString() ?? '');
   const [tlsServername, setTlsServername] = useState(existing?.tlsServername ?? '');
@@ -64,6 +65,15 @@ export function GatewayDialog({ open, onClose, orgId, siteGroupId, existing }: G
   const [jsonTopicTemplate, setJsonTopicTemplate] = useState(existing?.jsonTopicTemplate ?? '');
 
   const [error, setError] = useState<string | null>(null);
+  const { data: sites = [] } = trpc.site.list.useQuery({ orgId, siteGroupId });
+  const provisionedSites = sites.filter((s) => Boolean(s.controlaiSiteId));
+
+  useEffect(() => {
+    if (!existing && !targetSiteId && provisionedSites.length === 1) {
+      const onlySite = provisionedSites[0];
+      if (onlySite) setTargetSiteId(onlySite.id);
+    }
+  }, [existing, provisionedSites, targetSiteId]);
 
   const utils = trpc.useUtils();
   const createMutation = trpc.gateway.create.useMutation({
@@ -120,6 +130,11 @@ export function GatewayDialog({ open, onClose, orgId, siteGroupId, existing }: G
         tlsServername: tlsServernameValue === existing.tlsServername ? undefined : tlsServernameValue,
       });
     } else {
+      if (!targetSiteId) {
+        setError('Target Site (Broker) is required.');
+        setTab('identity');
+        return;
+      }
       if (!rootCaPem || !clientCertPem || !clientKeyPem) {
         setError('All three PEM fields are required when creating a gateway.');
         setTab('credentials');
@@ -196,6 +211,26 @@ export function GatewayDialog({ open, onClose, orgId, siteGroupId, existing }: G
             {tab === 'identity' && (
               <>
                 <div className="space-y-1">
+                  <Label htmlFor="gw-target-site">Target Site (Broker)</Label>
+                  <select
+                    id="gw-target-site"
+                    value={targetSiteId}
+                    onChange={(e) => setTargetSiteId(e.target.value)}
+                    disabled={!!existing || provisionedSites.length === 0}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                  >
+                    <option value="">Select a provisioned site...</option>
+                    {sites.map((site) => (
+                      <option key={site.id} value={site.id} disabled={!site.controlaiSiteId}>
+                        {site.name} ({site.controlaiSiteId?.slice(0, 8) ?? 'Unprovisioned'})
+                      </option>
+                    ))}
+                  </select>
+                  {provisionedSites.length === 0 && (
+                    <p className="text-xs text-destructive mt-1">No sites provisioned yet. Apply your canvas first.</p>
+                  )}
+                </div>
+                <div className="space-y-1">
                   <Label htmlFor="gw-label">Label</Label>
                   <Input
                     id="gw-label"
@@ -264,7 +299,11 @@ export function GatewayDialog({ open, onClose, orgId, siteGroupId, existing }: G
                             setError(null);
                             try {
                               setIsDetectingBrokerEndpoint(true);
-                              const detected = await utils.gateway.detectBrokerEndpoint.fetch({ orgId, siteGroupId });
+                              if (!targetSiteId) {
+                                setError('Select Target Site first.');
+                                return;
+                              }
+                              const detected = await utils.gateway.detectBrokerEndpointForSite.fetch({ orgId, siteId: targetSiteId });
                               setBrokerHost(detected.brokerHost);
                               setBrokerPort(detected.brokerPort.toString());
                               setTlsServername(detected.tlsServername);

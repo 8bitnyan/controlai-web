@@ -133,7 +133,17 @@ export function ApplyModal({ open, onClose, orgId, siteGroupId }: ApplyModalProp
                   <p className="text-sm text-muted-foreground">
                     {plan.ops.length} operation{plan.ops.length > 1 ? 's' : ''} will be applied:
                   </p>
-                  <OpList ops={plan.ops.map((op) => ({ opId: op.id, type: op.type, description: op.description, status: 'pending' as const }))} />
+                  <OpList ops={plan.ops.map((op) => ({
+                    opId: op.id,
+                    type: op.type,
+                    description:
+                      op.type === 'createSite'
+                        ? `🆕 ${op.description} — Will provision new site${op.nodeId ? ` (node ${op.nodeId.slice(0, 8)}…)` : ''}`
+                        : op.type === 'updateSite'
+                          ? `🔄 ${op.description} — Update existing site`
+                          : op.description,
+                    status: 'pending' as const,
+                  }))} />
                 </>
               )}
             </div>
