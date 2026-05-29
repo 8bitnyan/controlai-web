@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { trpc } from '@/lib/trpc/client';
 import type { GatewayDTO } from '@controlai-web/shared-types';
 import { Badge } from '@/components/ui/badge';
+import { useSiteGroupInbound } from '@/hooks/use-sitegroup-inbound';
 
 interface Message {
   id: string;
@@ -218,98 +219,24 @@ export function SensorIoStream({ orgId, siteGroupId }: SensorIoStreamProps) {
   // We filter the bridge SSE by the selected gateway's topic prefix.
   // For now, obtain a stream token for the first site in the siteGroup (best effort).
   const inboundGw = gwList.find((g) => g.id === inboundGwId);
-  const siteStreamTokenMutation = trpc.stream.token.useMutation();
   const inboundEsRef = useRef<EventSource | null>(null);
 
   // We need a siteId to open the bridge stream.
-  const { data: sitesData } = trpc.site.list.useQuery(
-    { orgId, siteGroupId },
-    { enabled: !!inboundGwId },
-  );
+  useSiteGroupInbound({
+    orgId,
+    siteGroupId,
+    enabled: !!inboundGwId,
+    onStatusChange: (s) => setInboundConn(s === 'disconnected' ? 'closed' : s),
+    onMessage: (data) => {
+      if (inboundGwId && inboundGw?.clientId && data.clientId !== inboundGw.clientId && data.source !== 'board') return;
+      appendInbound({ id: crypto.randomUUID(), ts: data.ts, topic: data.topic, summary: `${data.payloadSummary} (${data.source})` });
+    },
+  });
 
-  const firstSiteId = sitesData?.[0]?.id;
-
-  useEffect(() => {
-    if (inboundEsRef.current) {
-      inboundEsRef.current.close();
-      inboundEsRef.current = null;
-      setInboundConn('closed');
-    }
-    if (!inboundGwId || !firstSiteId) return;
-
-    setInboundConn('connecting');
-
-    siteStreamTokenMutation.mutate(
-      { orgId, siteId: firstSiteId },
-      {
-        onSuccess: ({ token, streamUrl }) => {
-          const es = new EventSource(`${streamUrl}?token=${encodeURIComponent(token)}`);
-          inboundEsRef.current = es;
-
-          es.onopen = () => setInboundConn('connected');
-          es.onerror = () => setInboundConn('error');
-          es.onmessage = (e: MessageEvent<string>) => {
-            try {
-              const data = JSON.parse(e.data) as {
-                topic?: string;
-                payload?: unknown;
-                timestamp?: string;
-              };
-              if (!data.topic) return;
-
-              // Filter by gateway topic prefix
-              const topicPrefix =
-                inboundGw?.mode === 'cbor-modules-cloud'
-                  ? `modules/${inboundGw.groupId}/`
-                  : inboundGw?.jsonTopicTemplate
-                    ? inboundGw.jsonTopicTemplate.split('{')[0]
-                    : '';
-
-              if (topicPrefix && !data.topic.startsWith(topicPrefix)) return;
-
-              // Format inbound payload — prefer compact readings line when present
-              let summary: string;
-              if (typeof data.payload === 'object' && data.payload !== null) {
-                const p = data.payload as Record<string, unknown>;
-                const readings = p.readings as
-                  | Array<{ sensorId?: string; value?: number; ts?: number }>
-                  | undefined;
-                if (Array.isArray(readings) && readings.length > 0) {
-                  const head =
-                    p.type ? String(p.type) : Object.keys(p).slice(0, 3).join(',');
-                  const r = readings
-                    .map((x) => `${x.sensorId ?? '?'}=${typeof x.value === 'number' ? x.value.toFixed(3) : x.value}`)
-                    .join(' ');
-                  summary = `${head} ${r}`;
-                } else {
-                  summary = JSON.stringify(data.payload);
-                }
-              } else {
-                summary = String(data.payload ?? '');
-              }
-
-              appendInbound({
-                id: crypto.randomUUID(),
-                ts: data.timestamp ? new Date(data.timestamp).getTime() : Date.now(),
-                topic: data.topic,
-                summary,
-              });
-            } catch {
-              // ignore
-            }
-          };
-        },
-        onError: () => setInboundConn('error'),
-      },
-    );
-
-    return () => {
-      inboundEsRef.current?.close();
-      inboundEsRef.current = null;
-      setInboundConn('closed');
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inboundGwId, firstSiteId]);
+  useEffect(() => () => {
+    inboundEsRef.current?.close();
+    inboundEsRef.current = null;
+  }, []);
 
   return (
     <div className="flex h-full gap-3">

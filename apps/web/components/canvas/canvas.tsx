@@ -28,7 +28,7 @@ import { trpc } from '@/lib/trpc/client';
 import { RotateCcw, RotateCw, Trash2, Maximize2, Wifi, WifiOff, Loader2, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useSiteStream } from '@/hooks/use-site-stream';
+import { useSiteGroupInbound } from '@/hooks/use-sitegroup-inbound';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const NODE_TYPES: NodeTypes = { sensor: DeviceNode as any, gateway: DeviceNode as any, broker: DeviceNode as any, ingest: DeviceNode as any, tsdb: DeviceNode as any, timescaledb: DeviceNode as any, monitoring: DeviceNode as any, orphan: OrphanNode as any };
@@ -91,6 +91,7 @@ export function Canvas({ orgId, projectId, siteGroupId, siteId }: CanvasProps) {
     sseStatus,
     setSseStatus,
     updateNodeTelemetry,
+    updateNodeLastMessage,
     getDeviceByCanvasNodeId,
   } = useCanvasStore();
   const trpcUtils = trpc.useUtils();
@@ -157,14 +158,21 @@ export function Canvas({ orgId, projectId, siteGroupId, siteId }: CanvasProps) {
   }, [nodes, edges, orgId, siteGroupId, saveMutation]);
 
   // SSE telemetry
-  const siteStreamSiteId = siteId ?? '';
-  useSiteStream({
+  useSiteGroupInbound({
     orgId,
-    siteId: siteStreamSiteId,
-    enabled: !!siteId,
+    siteGroupId,
+    enabled: true,
     onMessage: (msg) => {
-      if (msg.nodeId && msg.status) {
-        updateNodeTelemetry(msg.nodeId, msg.status, msg.msgPerSec ?? 0);
+      const gatewayNode = nodes.find((n) => n.type === 'gateway' && n.id.startsWith(msg.clientId.replace(/^gw-/, '')));
+      if (gatewayNode) {
+        updateNodeTelemetry(gatewayNode.id, 'ok', 0);
+        updateNodeLastMessage(gatewayNode.id, { topic: msg.topic, summary: msg.payloadSummary, ts: msg.ts, source: msg.source });
+      }
+      for (const reading of msg.readings ?? []) {
+        const sensor = nodes.find((n) => n.id === reading.sensorId);
+        if (!sensor) continue;
+        updateNodeTelemetry(sensor.id, 'ok', 0, { ts: reading.ts, value: reading.value });
+        updateNodeLastMessage(sensor.id, { topic: msg.topic, summary: msg.payloadSummary, ts: msg.ts, source: msg.source });
       }
     },
     onStatusChange: setSseStatus,

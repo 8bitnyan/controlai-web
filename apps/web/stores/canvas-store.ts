@@ -27,6 +27,7 @@ type ManifestCanvasNodeData = {
   config?: Record<string, unknown>;
   status?: string;
   msgPerSec?: number;
+  lastMessage?: { topic: string; summary: string; ts: number; source: 'sim' | 'board' } | null;
   __orphan?: boolean;
   [k: string]: unknown;
 };
@@ -47,7 +48,10 @@ export type DeviceRow = {
   siteId?: string | null;
   simulationDesired: boolean;
   config: Record<string, unknown>;
+  telemetry?: SignalValue[];
 };
+
+export type SignalValue = { ts: number; value: number };
 
 interface CanvasState {
   nodes: Node<CanvasNodeData>[];
@@ -85,7 +89,8 @@ interface CanvasState {
   markDirty: () => void;
 
   // Telemetry overlays — throttled, no history
-  updateNodeTelemetry: (nodeId: string, status: string, msgPerSec: number) => void;
+  updateNodeTelemetry: (nodeId: string, status: string, msgPerSec: number, value?: SignalValue) => void;
+  updateNodeLastMessage: (nodeId: string, msg: { topic: string; summary: string; ts: number; source: 'sim' | 'board' }) => void;
 
   // SSE status
   setSseStatus: (status: 'disconnected' | 'connecting' | 'connected' | 'error') => void;
@@ -348,13 +353,38 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   markSaved: () => set({ isDirty: false, lastSaved: new Date() }),
   markDirty: () => set({ isDirty: true }),
 
-  updateNodeTelemetry: (nodeId, status, msgPerSec) => {
+  updateNodeTelemetry: (nodeId, status, msgPerSec, value) => {
     set((state) => ({
       nodes: state.nodes.map((n) =>
         n.id === nodeId
-          ? { ...n, data: { ...n.data, status, msgPerSec } as NodeData }
+          ? {
+              ...n,
+              data: {
+                ...n.data,
+                ...(status ? { status } : {}),
+                ...(typeof msgPerSec === 'number' ? { msgPerSec } : {}),
+              } as NodeData,
+            }
           : n,
       ),
+      nodeDevices: (() => {
+        if (!value) return state.nodeDevices;
+        const existing = state.nodeDevices.get(nodeId);
+        if (!existing) return state.nodeDevices;
+        const nowTs = value.ts;
+        const nextTelemetry = [...(existing.telemetry ?? []), value]
+          .filter((entry) => nowTs - entry.ts <= 30_000)
+          .slice(-60);
+        const next = new Map(state.nodeDevices);
+        next.set(nodeId, { ...existing, telemetry: nextTelemetry });
+        return next;
+      })(),
+    }));
+  },
+
+  updateNodeLastMessage: (nodeId, msg) => {
+    set((state) => ({
+      nodes: state.nodes.map((n) => (n.id === nodeId ? { ...n, data: ({ ...n.data, lastMessage: msg } as unknown as NodeData) } : n)),
     }));
   },
 
@@ -388,7 +418,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setNodeDevice: (canvasNodeId, device) => {
     set((state) => {
       const next = new Map(state.nodeDevices);
-      next.set(canvasNodeId, device);
+      next.set(canvasNodeId, { ...device, telemetry: device.telemetry ?? [] });
       return { nodeDevices: next };
     });
   },
@@ -404,7 +434,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   bulkSetNodeDevices: (devices) => {
     const next = new Map<string, DeviceRow>();
     for (const row of devices) {
-      next.set(row.canvasNodeId, row.device);
+      next.set(row.canvasNodeId, { ...row.device, telemetry: row.device.telemetry ?? [] });
     }
     set({ nodeDevices: next });
   },

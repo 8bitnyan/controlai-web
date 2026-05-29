@@ -7,6 +7,8 @@ import { trpc } from '@/lib/trpc/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ConnectSerialDialog } from './connect-serial-dialog';
+import { LiveBrokerLog } from './live-broker-log';
 
 const REG_STATES = ['all', 'UNREGISTERED', 'REGISTERING', 'REGISTERED', 'ORPHANED'] as const;
 
@@ -41,6 +43,8 @@ export function DevicesClient({ orgId, projectId, siteGroupId }: { orgId: string
   const [registrationState, setRegistrationState] = useState<(typeof REG_STATES)[number]>('all');
   const [deviceTypeId, setDeviceTypeId] = useState<string>('all');
   const [parentDeviceKey, setParentDeviceKey] = useState('');
+  const [serialGatewayId, setSerialGatewayId] = useState<string | null>(null);
+  const gatewayList = trpc.gateway.list.useQuery({ orgId, siteGroupId });
 
   const listInput = {
     orgId,
@@ -70,6 +74,7 @@ export function DevicesClient({ orgId, projectId, siteGroupId }: { orgId: string
   const deviceTypes = useMemo(() => listDeviceTypes(), []);
 
   return (
+    <>
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Devices</h2>
@@ -100,6 +105,7 @@ export function DevicesClient({ orgId, projectId, siteGroupId }: { orgId: string
                 const manifest = getDeviceType(device.deviceTypeId);
                 const label = truncate(device.realUuid ?? device.shadowUuid, 16);
                 const identity = device.registrationState === 'REGISTERED' ? (device.realUuid ?? '—') : truncate(device.shadowUuid, 12);
+                const gw = gatewayList.data?.find((g) => g.canvasNodeId === device.canvasNodeId);
                 return (
                   <tr key={device.deviceKey} className="border-b last:border-b-0">
                     <td className="px-3 py-2 font-mono text-xs">{label}</td>
@@ -120,6 +126,7 @@ export function DevicesClient({ orgId, projectId, siteGroupId }: { orgId: string
                         >
                           Sim {device.simulationDesired ? 'On' : 'Off'}
                         </Button>
+                        {gw ? <Button size="sm" variant="outline" onClick={() => setSerialGatewayId(gw.id)}>Connect</Button> : null}
                       </div>
                     </td>
                   </tr>
@@ -129,6 +136,9 @@ export function DevicesClient({ orgId, projectId, siteGroupId }: { orgId: string
           </table>
         </div>
       )}
+      <LiveBrokerLog orgId={orgId} siteGroupId={siteGroupId} />
     </div>
+    {serialGatewayId ? <ConnectSerialDialog open={!!serialGatewayId} onOpenChange={(o) => { if (!o) setSerialGatewayId(null); }} orgId={orgId} gatewayId={serialGatewayId} isSimulator={gatewayList.data?.find((g) => g.id === serialGatewayId)?.kind === 'simulator'} /> : null}
+    </>
   );
 }
