@@ -6,6 +6,25 @@ import { callDaemon } from '../lib/daemon-client';
 import { synthesizePlan, type DaemonState } from '../lib/apply-planner';
 import { executeOp, pollReconcilerStatus } from '../lib/apply-executor';
 import type { OpResult } from '@controlai-web/shared-types';
+import { getDeviceType } from '@controlai-web/shared-types';
+
+const INFRA_CATEGORIES = new Set(['broker', 'ingest', 'tsdb', 'monitoring']);
+function isInfraDeviceType(deviceTypeId: string | null | undefined): boolean {
+  if (!deviceTypeId) return false;
+  const m = getDeviceType(deviceTypeId);
+  return !!m && INFRA_CATEGORIES.has(m.category);
+}
+import { encryptToken } from '../lib/crypto';
+import type { Prisma } from '@controlai-web/db';
+
+type ApplyGraphNode = { id: string; type: string; data: Record<string, unknown> };
+type ApplyGraphEdge = { id: string; source: string; target: string; sourceHandle?: string; targetHandle?: string };
+
+function inferGatewayLabel(node: ApplyGraphNode): string {
+  const label = node.data?.label;
+  if (typeof label === 'string' && label.trim().length > 0) return label.trim();
+  return 'gateway';
+}
 
 async function bindDeviceSiteRecursively(
   prisma: typeof import('@controlai-web/db').prisma,
@@ -18,6 +37,22 @@ async function bindDeviceSiteRecursively(
     data: { siteId: newSiteId },
   });
   if (root.count === 0) return [];
+
+  // Infra devices (broker/ingest/tsdb/monitoring) are considered REGISTERED
+  // as soon as Apply binds them to a Site — there is no physical board to provision.
+  const rootDevices = await prisma.device.findMany({
+    where: { siteGroupId, canvasNodeId },
+    select: { deviceKey: true, deviceTypeId: true, registrationState: true },
+  });
+  const rootInfraKeys = rootDevices
+    .filter((d) => d.registrationState !== 'REGISTERED' && isInfraDeviceType(d.deviceTypeId))
+    .map((d) => d.deviceKey);
+  if (rootInfraKeys.length > 0) {
+    await prisma.device.updateMany({
+      where: { deviceKey: { in: rootInfraKeys } },
+      data: { registrationState: 'REGISTERED', registeredAt: new Date() },
+    });
+  }
 
   const affectedKeys: string[] = [];
 
@@ -43,6 +78,19 @@ async function bindDeviceSiteRecursively(
       where: { siteGroupId, deviceKey: { in: childKeys } },
       data: { siteId: newSiteId },
     });
+    const childRows = await prisma.device.findMany({
+      where: { deviceKey: { in: childKeys } },
+      select: { deviceKey: true, deviceTypeId: true, registrationState: true },
+    });
+    const infraChildKeys = childRows
+      .filter((d) => d.registrationState !== 'REGISTERED' && isInfraDeviceType(d.deviceTypeId))
+      .map((d) => d.deviceKey);
+    if (infraChildKeys.length > 0) {
+      await prisma.device.updateMany({
+        where: { deviceKey: { in: infraChildKeys } },
+        data: { registrationState: 'REGISTERED', registeredAt: new Date() },
+      });
+    }
     affectedKeys.push(...childKeys);
     queue.push(...childKeys);
   }
@@ -166,8 +214,8 @@ export const applyRouter = router({
       // commit compute identical planHashes.
       const daemonState = await fetchDaemonState(instance);
 
-      const nodes = nodeConfig.nodes as unknown as Array<{ id: string; type: string; data: Record<string, unknown> }>;
-      const edges = nodeConfig.edges as unknown as Array<{ id: string; source: string; target: string; sourceHandle?: string; targetHandle?: string }>;
+      const nodes = nodeConfig.nodes as unknown as ApplyGraphNode[];
+      const edges = nodeConfig.edges as unknown as ApplyGraphEdge[];
 
       const site = await ctx.prisma.site.findFirst({
         where: { siteGroupId: input.siteGroupId },
@@ -246,8 +294,8 @@ export const applyRouter = router({
         });
       }
 
-      const nodes = nodeConfig.nodes as unknown as Array<{ id: string; type: string; data: Record<string, unknown> }>;
-      const edges = nodeConfig.edges as unknown as Array<{ id: string; source: string; target: string }>;
+      const nodes = nodeConfig.nodes as unknown as ApplyGraphNode[];
+      const edges = nodeConfig.edges as unknown as ApplyGraphEdge[];
 
       const daemonState = await fetchDaemonState(sg.project.instance);
 
@@ -445,33 +493,57 @@ export const applyRouter = router({
         // SiteGroup and stamp the daemon IDs onto it. updateMany silently
         // succeeds with 0 rows if no Site exists yet — auto-create one so
         // downstream flows (gateway.issueFromDaemon) can find it.
-        if (op.type === 'createSite' && tenantId && siteId) {
+        if (op.type === 'createSite') {
+          if (!tenantId || !siteId) {
+            console.warn('[apply.commit] createSite succeeded but tenantId/siteId unresolved', {
+              opId: op.id,
+              tenantId,
+              siteId,
+              daemonResponseBody: result.daemonResponseBody,
+            });
+            continue;
+          }
           const canvasNodeId = op.nodeId;
-          const existing = await ctx.prisma.site.findFirst({
-            where: {
-              siteGroupId: input.siteGroupId,
-              canvasNodeId: canvasNodeId ?? null,
-            },
-          });
-          if (existing) {
-            await ctx.prisma.site.update({
-              where: { id: existing.id },
-              data: {
-                controlaiTenantId: tenantId,
-                controlaiSiteId: siteId,
-                canvasNodeId: canvasNodeId ?? existing.canvasNodeId,
-              },
-            });
-          } else {
-            await ctx.prisma.site.create({
-              data: {
+          try {
+            const existing = await ctx.prisma.site.findFirst({
+              where: {
                 siteGroupId: input.siteGroupId,
-                name: sg.name,
                 canvasNodeId: canvasNodeId ?? null,
-                controlaiTenantId: tenantId,
-                controlaiSiteId: siteId,
               },
             });
+            if (existing) {
+              await ctx.prisma.site.update({
+                where: { id: existing.id },
+                data: {
+                  controlaiTenantId: tenantId,
+                  controlaiSiteId: siteId,
+                  canvasNodeId: canvasNodeId ?? existing.canvasNodeId,
+                },
+              });
+            } else {
+              await ctx.prisma.site.create({
+                data: {
+                  siteGroupId: input.siteGroupId,
+                  name: sg.name,
+                  canvasNodeId: canvasNodeId ?? null,
+                  controlaiTenantId: tenantId,
+                  controlaiSiteId: siteId,
+                },
+              });
+            }
+          } catch (err) {
+            console.warn('[apply.commit] site upsert failed', { opId: op.id, error: err });
+            opResults[opResults.length - 1] = {
+              ...result,
+              status: 'failed',
+              errorDetail: `site upsert failed: ${err instanceof Error ? err.message : String(err)}`,
+            };
+            success = false;
+            failedAt = i;
+            for (let j = i + 1; j < plan.ops.length; j++) {
+              opResults.push({ opId: plan.ops[j]!.id, type: plan.ops[j]!.type, status: 'pending' });
+            }
+            break;
           }
 
           type DaemonTenantRaw = { Domain?: string; domain?: string };
@@ -509,9 +581,218 @@ export const applyRouter = router({
           }
         }
 
+        if (op.type === 'issueCert' && tenantId && siteId && result.daemonResponseBody) {
+          const body = result.daemonResponseBody as Record<string, unknown>;
+          const cert = typeof body.cert_pem === 'string' ? body.cert_pem : typeof body.clientCertPem === 'string' ? body.clientCertPem : null;
+          const key = typeof body.key_pem === 'string' ? body.key_pem : typeof body.clientKeyPem === 'string' ? body.clientKeyPem : null;
+          const ca = typeof body.ca_pem === 'string' ? body.ca_pem : typeof body.rootCaPem === 'string' ? body.rootCaPem : null;
+          if (cert && key) {
+            await ctx.prisma.site.updateMany({
+              where: { siteGroupId: input.siteGroupId, controlaiTenantId: tenantId, controlaiSiteId: siteId },
+              data: { mqttCert: encryptToken(cert), mqttKey: encryptToken(key) },
+            });
+          }
+          if (!cert || !key) {
+            // No cert material to provision gateways with; skip auto-create.
+          } else {
+          const certPem: string = cert;
+          const keyPem: string = key;
+          const caPem: string = ca ?? cert;
+          const gatewayNodes = nodes.filter((node) => String(node.data?.deviceTypeId ?? '').includes('gateway'));
+          const sites = await ctx.prisma.site.findMany({ where: { siteGroupId: input.siteGroupId } });
+          const siteByCanvasNode = new Map(sites.map((s) => [s.canvasNodeId, s]));
+          const domain = (new URL(instance.baseURL)).hostname;
+          for (const gatewayNode of gatewayNodes) {
+            const relatedEdge = edges.find((edge) => edge.source === gatewayNode.id || edge.target === gatewayNode.id);
+            if (!relatedEdge) continue;
+            const brokerNodeId = relatedEdge.source === gatewayNode.id ? relatedEdge.target : relatedEdge.source;
+            const boundSite = siteByCanvasNode.get(brokerNodeId);
+            if (!boundSite?.controlaiSiteId || !boundSite.controlaiTenantId) continue;
+            const endpointHost = boundSite.tlsServername ?? `${boundSite.controlaiSiteId}.${boundSite.controlaiTenantId}.${domain}`;
+            const gatewayDeviceRow = await ctx.prisma.device.findFirst({
+              where: { siteGroupId: input.siteGroupId, canvasNodeId: gatewayNode.id },
+              select: { deviceKey: true },
+            });
+            const gatewayData = {
+              label: inferGatewayLabel(gatewayNode),
+              kind: 'simulator',
+              mode: 'cbor-modules-cloud',
+              endpointURL: `mqtts://${endpointHost}:8883`,
+              groupId: boundSite.controlaiTenantId,
+              clientId: `gw-${gatewayNode.id.slice(0, 8)}`,
+              rootCaPemEnc: encryptToken(caPem),
+              clientCertPemEnc: encryptToken(certPem),
+              clientKeyPemEnc: encryptToken(keyPem),
+              sensors: [],
+              desiredState: 'running',
+              simulationDesired: true,
+              ...(gatewayDeviceRow?.deviceKey ? { deviceKey: gatewayDeviceRow.deviceKey } : {}),
+            };
+            const existingGateway = await ctx.prisma.gateway.findFirst({
+              where: { siteGroupId: input.siteGroupId, canvasNodeId: gatewayNode.id },
+              select: { id: true },
+            });
+            if (existingGateway) {
+              await ctx.prisma.gateway.update({ where: { id: existingGateway.id }, data: gatewayData });
+            } else {
+              await ctx.prisma.gateway.create({ data: { siteGroupId: input.siteGroupId, canvasNodeId: gatewayNode.id, ...gatewayData } });
+            }
+          }
+          }
+        }
+
         // Poll reconciler after mutating ops (not issueCert — it's async anyway)
         if (op.type !== 'issueCert') {
           await pollReconcilerStatus(instance);
+        }
+      }
+
+      // Post-loop: ensure every gateway canvas node has a Gateway row, even if
+      // this Apply was a no-op plan (e.g. only configureDriver). Idempotent.
+      if (success) {
+        try {
+          const allGatewayNodes = nodes.filter((n) => {
+            const tid = String(n.data?.deviceTypeId ?? '');
+            return tid.includes('gateway');
+          });
+          if (allGatewayNodes.length > 0) {
+            const sites = await ctx.prisma.site.findMany({
+              where: { siteGroupId: input.siteGroupId },
+              select: { id: true, canvasNodeId: true, controlaiTenantId: true, controlaiSiteId: true, tlsServername: true, mqttCert: true, mqttKey: true },
+            });
+            const siteByCanvas = new Map(sites.map((s) => [s.canvasNodeId, s]));
+            const daemonHost = new URL(instance.baseURL).hostname;
+            for (const gwNode of allGatewayNodes) {
+              // A gateway typically has many edges: incoming sensor lines + one outgoing
+              // to a broker. Scan all edges touching this gateway and pick the one whose
+              // OTHER end matches a Site we just provisioned.
+              const candidateEdges = edges.filter((e) => e.source === gwNode.id || e.target === gwNode.id);
+              let boundSite: ReturnType<typeof siteByCanvas.get> | null = null;
+              for (const e of candidateEdges) {
+                const otherId = e.source === gwNode.id ? e.target : e.source;
+                const candidate = siteByCanvas.get(otherId);
+                if (candidate?.controlaiTenantId && candidate.controlaiSiteId) {
+                  boundSite = candidate;
+                  break;
+                }
+              }
+              if (!boundSite?.controlaiTenantId || !boundSite.controlaiSiteId) continue;
+
+              // If site has no cert yet, mint one on demand.
+              let certPemEnc = boundSite.mqttCert;
+              let keyPemEnc = boundSite.mqttKey;
+              let caPemRaw: string | null = null;
+              if (!certPemEnc || !keyPemEnc) {
+                try {
+                  const mint = await callDaemon<{ cert_pem?: string; key_pem?: string; ca_pem?: string }>(
+                    instance,
+                    `/v1/tenants/${boundSite.controlaiTenantId}/sites/${boundSite.controlaiSiteId}/pki/certs`,
+                    { method: 'POST', body: JSON.stringify({ gateway: 'mqtt-bridge' }) },
+                  );
+                  if (mint.cert_pem && mint.key_pem) {
+                    certPemEnc = encryptToken(mint.cert_pem);
+                    keyPemEnc = encryptToken(mint.key_pem);
+                    caPemRaw = mint.ca_pem ?? mint.cert_pem;
+                    await ctx.prisma.site.update({
+                      where: { id: boundSite.id },
+                      data: { mqttCert: certPemEnc, mqttKey: keyPemEnc },
+                    });
+                  }
+                } catch (mintErr) {
+                  console.warn('[apply.commit] lazy cert mint failed', { siteId: boundSite.id, error: mintErr });
+                  continue;
+                }
+              }
+              if (!certPemEnc || !keyPemEnc) continue;
+              const endpointHost = boundSite.tlsServername ?? `${boundSite.controlaiSiteId}.${boundSite.controlaiTenantId}.${daemonHost}`;
+              // Link Gateway → gateway Device so the simulator's
+              // reconcileSiteGroup (which looks up Gateway by deviceKey) can find it.
+              const gatewayDevice = await ctx.prisma.device.findFirst({
+                where: { siteGroupId: input.siteGroupId, canvasNodeId: gwNode.id },
+                select: { deviceKey: true },
+              });
+              const gatewayData = {
+                label: inferGatewayLabel(gwNode),
+                kind: 'simulator',
+                mode: 'cbor-modules-cloud',
+                endpointURL: `mqtts://${endpointHost}:8883`,
+                groupId: boundSite.controlaiTenantId,
+                clientId: `gw-${gwNode.id.slice(0, 8)}`,
+                rootCaPemEnc: caPemRaw ? encryptToken(caPemRaw) : certPemEnc,
+                clientCertPemEnc: certPemEnc,
+                clientKeyPemEnc: keyPemEnc,
+                sensors: [],
+                desiredState: 'running',
+                simulationDesired: true,
+                ...(gatewayDevice?.deviceKey ? { deviceKey: gatewayDevice.deviceKey } : {}),
+              };
+              const existing = await ctx.prisma.gateway.findFirst({
+                where: { siteGroupId: input.siteGroupId, canvasNodeId: gwNode.id },
+                select: { id: true },
+              });
+              if (existing) {
+                // Re-assert running-state fields too so a previously-stopped
+                // gateway gets re-enabled when the user re-Applies.
+                await ctx.prisma.gateway.update({
+                  where: { id: existing.id },
+                  data: {
+                    label: gatewayData.label,
+                    endpointURL: gatewayData.endpointURL,
+                    groupId: gatewayData.groupId,
+                    clientId: gatewayData.clientId,
+                    desiredState: 'running',
+                    simulationDesired: true,
+                    ...(gatewayDevice?.deviceKey ? { deviceKey: gatewayDevice.deviceKey } : {}),
+                  },
+                });
+              } else {
+                await ctx.prisma.gateway.create({ data: { siteGroupId: input.siteGroupId, canvasNodeId: gwNode.id, ...gatewayData } });
+                console.log('[apply.commit] auto-created Gateway', { canvasNodeId: gwNode.id, label: gatewayData.label });
+              }
+            }
+          }
+        } catch (gwErr) {
+          console.warn('[apply.commit] post-loop gateway auto-create failed', gwErr);
+        }
+      }
+
+      // Post-loop: auto-reparent sensor Devices to their connected gateway Device
+      // so the simulator's reconcileSiteGroup (which groups children by parentDeviceKey)
+      // sees a non-empty sensor list. Idempotent — skips already-correct rows.
+      if (success) {
+        try {
+          const gwNodes = nodes.filter((n) => {
+            const tid = String(n.data?.deviceTypeId ?? '');
+            const m = getDeviceType(tid);
+            return m?.category === 'gateway';
+          });
+          for (const gwNode of gwNodes) {
+            const gwDevice = await ctx.prisma.device.findFirst({
+              where: { siteGroupId: input.siteGroupId, canvasNodeId: gwNode.id },
+              select: { deviceKey: true },
+            });
+            if (!gwDevice) continue;
+            const touchingEdges = edges.filter((e) => e.source === gwNode.id || e.target === gwNode.id);
+            for (const edge of touchingEdges) {
+              const otherNodeId = edge.source === gwNode.id ? edge.target : edge.source;
+              const otherNode = nodes.find((n) => n.id === otherNodeId);
+              if (!otherNode) continue;
+              const otherTid = String(otherNode.data?.deviceTypeId ?? '');
+              const otherManifest = getDeviceType(otherTid);
+              // Only reparent sensor-like devices; skip gateway/broker/ingest/tsdb/monitoring.
+              if (!otherManifest || otherManifest.category === 'gateway' || INFRA_CATEGORIES.has(otherManifest.category)) continue;
+              await ctx.prisma.device.updateMany({
+                where: {
+                  siteGroupId: input.siteGroupId,
+                  canvasNodeId: otherNodeId,
+                  NOT: { parentDeviceKey: gwDevice.deviceKey },
+                },
+                data: { parentDeviceKey: gwDevice.deviceKey },
+              });
+            }
+          }
+        } catch (reparentErr) {
+          console.warn('[apply.commit] post-loop sensor reparent failed', reparentErr);
         }
       }
 
@@ -535,7 +816,7 @@ export const applyRouter = router({
           success,
           opCount: plan.ops.length,
           failedAt,
-          resultJson: opResults,
+          resultJson: opResults as unknown as Prisma.InputJsonValue,
         },
       });
 
