@@ -21,12 +21,24 @@ export function GatewayDetailClient({
   siteGroupId,
 }: GatewayDetailClientProps) {
   const q = trpc.gateway.get.useQuery({ orgId, gatewayId });
+  const stuckQ = trpc.gateway.listStuckRegistrations.useQuery({ orgId, siteGroupId });
 
   if (q.isLoading) return <div className="p-6">불러오는 중...</div>;
   if (!q.data) return <div className="p-6">찾을 수 없습니다</div>;
 
-  const gw = q.data;
+  const gw = q.data as typeof q.data & {
+    deviceKey: string | null;
+    lastProvisionedDeviceSerial: string | null;
+  };
   const provisionHref = `/orgs/${orgId}/projects/${projectId}/site-groups/${siteGroupId}/gateways/${gatewayId}/provision`;
+  const registerBaseHref = `/orgs/${orgId}/projects/${projectId}/site-groups/${siteGroupId}/register`;
+  const canRegister = gw.deviceKey !== null;
+  const previousSerial = gw.lastProvisionedDeviceSerial;
+  const hasPreviousSerial = previousSerial !== null;
+  const registerHref = hasPreviousSerial
+    ? `${registerBaseHref}?mode=re-register&previousSerial=${encodeURIComponent(previousSerial)}`
+    : `${registerBaseHref}?mode=new`;
+  const hasStuckSessions = (stuckQ.data?.length ?? 0) > 0;
 
   return (
     <div className="space-y-6 p-6">
@@ -68,6 +80,27 @@ export function GatewayDetailClient({
             className="cursor-not-allowed bg-gradient-to-r from-violet-600 to-blue-600 text-white opacity-50"
           >
             보드에 설치
+          </Button>
+        )}
+      </div>
+
+      {hasStuckSessions ? (
+        <Card className="flex items-center justify-between gap-3 p-4">
+          <p className="text-sm">Resume registration in progress</p>
+          <Link href={registerBaseHref} className="text-sm font-medium underline underline-offset-2">
+            Resume
+          </Link>
+        </Card>
+      ) : null}
+
+      <div className="flex gap-3">
+        {canRegister ? (
+          <Link href={registerHref}>
+            <Button>{hasPreviousSerial ? 'Re-register Board' : 'Register Device'}</Button>
+          </Link>
+        ) : (
+          <Button disabled title="Provision gateway first" className="cursor-not-allowed opacity-50">
+            Register Device
           </Button>
         )}
       </div>

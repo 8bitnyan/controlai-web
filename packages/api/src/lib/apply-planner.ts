@@ -4,6 +4,7 @@
  */
 import { createHash, randomUUID } from 'crypto';
 import type { Op, OpType } from '@controlai-web/shared-types';
+import { getDeviceType } from '@controlai-web/shared-types';
 
 export interface GraphNode {
   id: string;
@@ -78,13 +79,31 @@ export function synthesizePlan(
     canvasNodeId: string | null;
     controlaiTenantId: string | null;
     controlaiSiteId: string | null;
+    deviceSiteId?: string | null;
   }> = [],
+  devicesByCanvasNodeId?: Map<string, { siteId: string | null }>,
 ): Plan {
   const ops: Op[] = [];
 
-  const brokerNodes = nodes.filter((n) => n.type === 'broker');
-  const ingestNodes = nodes.filter((n) => n.type === 'ingest');
-  const timescaleNodes = nodes.filter((n) => n.type === 'timescaledb');
+  const orphanNodes = nodes.filter((node) => {
+    const deviceTypeId = node.data?.deviceTypeId;
+    return typeof deviceTypeId !== 'string' || !getDeviceType(deviceTypeId);
+  });
+  if (orphanNodes.length > 0) {
+    throw new Error(
+      `Plan synthesis blocked: orphan device types present (count=${orphanNodes.length})`,
+    );
+  }
+
+  const brokerNodes = nodes.filter(
+    (n) => getDeviceType(n.data?.deviceTypeId as string)?.category === 'broker',
+  );
+  const ingestNodes = nodes.filter(
+    (n) => getDeviceType(n.data?.deviceTypeId as string)?.category === 'ingest',
+  );
+  const timescaleNodes = nodes.filter(
+    (n) => getDeviceType(n.data?.deviceTypeId as string)?.category === 'tsdb',
+  );
 
   // Prefer the project-pinned tenant id, then fall back to the first tenant
   // the daemon reports. Either resolves the :tenantId placeholder for ops that
@@ -102,11 +121,17 @@ export function synthesizePlan(
     const kind = data.kind ?? 'mosquitto';
     const throughput = data.throughput ?? 'low';
 
-    const matchingExistingSite = existingSites.find(
-      (s) => s.canvasNodeId === broker.id,
-    );
+    const matchingExistingSite = existingSites.find((s) => s.canvasNodeId === broker.id);
+    const preferredDeviceSiteId =
+      devicesByCanvasNodeId?.get(broker.id)?.siteId ?? matchingExistingSite?.deviceSiteId ?? null;
     const matchingSite =
-      matchingExistingSite?.controlaiTenantId && matchingExistingSite.controlaiSiteId
+      matchingExistingSite?.controlaiTenantId && preferredDeviceSiteId
+        ? daemonState.sites.find(
+            (s) =>
+              s.tenantId === matchingExistingSite.controlaiTenantId &&
+              s.id === preferredDeviceSiteId,
+          )
+        : matchingExistingSite?.controlaiTenantId && matchingExistingSite.controlaiSiteId
         ? daemonState.sites.find(
             (s) =>
               s.tenantId === matchingExistingSite.controlaiTenantId &&
@@ -180,7 +205,47 @@ export function synthesizePlan(
           broker.id,
         ),
       );
+
+      ops.push(
+        makeOp(
+          'bindDeviceSite',
+          'Bind broker Device to created Site',
+          '/internal/device-site-bind',
+          'POST',
+          {},
+          broker.id,
+        ),
+      );
+
+      ops.push(
+        makeOp(
+          'bindDeviceSiteDescendants',
+          'Propagate Site binding to Device descendants',
+          '/internal/device-site-bind/descendants',
+          'POST',
+          {},
+          broker.id,
+        ),
+      );
     }
+
+    // configureDriver op — per broker node, push driver config so the orchestrator
+    // can hot-reload the BrokerDriverInstance for this Site.
+    const brokerData = broker.data as {
+      driverId?: string;
+      driverConfig?: Record<string, unknown>;
+    };
+    const driverId = brokerData.driverId ?? 'mqtt-driver';
+    ops.push(
+      makeOp(
+        'configureDriver',
+        `Configure broker driver: ${driverId}`,
+        '/internal/configure-driver',
+        'POST',
+        { driverId, driverConfig: brokerData.driverConfig ?? {} },
+        broker.id,
+      ),
+    );
   }
 
   // Step 2: Ingest config diffs
@@ -198,14 +263,24 @@ export function synthesizePlan(
       const boundExistingSite = existingSites.find(
         (s) => s.canvasNodeId === connectedBroker.id,
       );
+      const preferredDeviceSiteId =
+        devicesByCanvasNodeId?.get(connectedBroker.id)?.siteId ??
+        boundExistingSite?.deviceSiteId ??
+        null;
       const existingSite =
-        boundExistingSite?.controlaiTenantId && boundExistingSite.controlaiSiteId
+        boundExistingSite?.controlaiTenantId && preferredDeviceSiteId
           ? daemonState.sites.find(
               (s) =>
                 s.tenantId === boundExistingSite.controlaiTenantId &&
-                s.id === boundExistingSite.controlaiSiteId,
+                s.id === preferredDeviceSiteId,
             )
-          : null;
+          : boundExistingSite?.controlaiTenantId && boundExistingSite.controlaiSiteId
+            ? daemonState.sites.find(
+                (s) =>
+                  s.tenantId === boundExistingSite.controlaiTenantId &&
+                  s.id === boundExistingSite.controlaiSiteId,
+              )
+            : null;
       if (
         existingSite &&
         existingSite.ingest?.direction !== direction
@@ -241,6 +316,25 @@ export function synthesizePlan(
         ),
       );
     }
+  }
+
+  // Step 4: Topic-schema mode migrations
+  // When any canvas node sets `targetTopicSchemaMode` (e.g. via canvas toolbar
+  // admin action), emit a migrateTopicSchema op for the SiteGroup.
+  const schemaTargets = nodes
+    .map((n) => (n.data as { targetTopicSchemaMode?: string } | undefined)?.targetTopicSchemaMode)
+    .filter((v): v is string => Boolean(v));
+  if (schemaTargets.length > 0) {
+    const mode = schemaTargets[0];
+    ops.push(
+      makeOp(
+        'migrateTopicSchema',
+        `Migrate topic schema to ${mode}`,
+        '/internal/migrate-topic-schema',
+        'POST',
+        { mode },
+      ),
+    );
   }
 
   // Compute planHash

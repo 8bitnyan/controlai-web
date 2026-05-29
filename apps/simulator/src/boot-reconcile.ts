@@ -1,32 +1,34 @@
 import pino from 'pino';
 import { prisma } from '@controlai-web/db';
-import { startGateway } from './manager.js';
+import { reconcileSiteGroup } from './manager.js';
 
 const logger = pino({ name: 'boot-reconcile' });
 
 /**
- * On startup, find all Gateway rows where desiredState='running'
- * and start a simulator client for each.
+ * On startup, find all SiteGroups with simulationDesired Devices
+ * and reconcile simulator runtime per SiteGroup.
  */
 export async function reconcileOnBoot(): Promise<void> {
-  const gateways = await prisma.gateway.findMany({
-    where: { desiredState: 'running' },
-    select: { id: true, label: true },
+  const groups = await prisma.device.groupBy({
+    where: { simulationDesired: true },
+    by: ['siteGroupId'],
   });
 
-  if (gateways.length === 0) {
-    logger.info('No gateways to reconcile on boot');
+  const siteGroupIds = groups.map((group) => group.siteGroupId);
+
+  if (siteGroupIds.length === 0) {
+    logger.info('No site groups to reconcile on boot');
     return;
   }
 
-  logger.info({ count: gateways.length }, 'Reconciling gateways on boot');
+  logger.info({ count: siteGroupIds.length }, 'Reconciling site groups on boot');
 
-  for (const gw of gateways) {
+  for (const siteGroupId of siteGroupIds) {
     try {
-      await startGateway(gw.id);
-      logger.info({ gatewayId: gw.id, label: gw.label }, 'Gateway reconciled');
+      await reconcileSiteGroup(siteGroupId);
+      logger.info({ siteGroupId }, 'SiteGroup reconciled');
     } catch (err) {
-      logger.error({ gatewayId: gw.id, err }, 'Failed to reconcile gateway on boot');
+      logger.error({ siteGroupId, err }, 'Failed to reconcile site group on boot');
     }
   }
 }

@@ -1,5 +1,7 @@
 import { TRPCError } from '@trpc/server';
+import { assertKnownDeviceType, LEGACY_TYPE_MAP } from '@controlai-web/shared-types';
 import { z } from 'zod';
+import { createDeviceInternal, deleteDeviceInternal } from '../lib/device-internal';
 import { router, orgProcedure } from '../trpc';
 
 export const nodeConfigRouter = router({
@@ -20,7 +22,27 @@ export const nodeConfigRouter = router({
         where: { siteGroupId: input.siteGroupId, isActive: true },
         orderBy: { version: 'desc' },
       });
-      if (active) return active;
+      if (active) {
+        const nodes = (active.nodes as unknown[]).map((node) => {
+          const parsedNode = z
+            .object({
+              type: z.string().optional(),
+              data: z.record(z.string(), z.unknown()).optional(),
+            })
+            .passthrough()
+            .parse(node);
+          if (parsedNode.data?.deviceTypeId) return node;
+          if (!parsedNode.type || !(parsedNode.type in LEGACY_TYPE_MAP)) return node;
+          return {
+            ...parsedNode,
+            data: {
+              ...(parsedNode.data ?? {}),
+              deviceTypeId: LEGACY_TYPE_MAP[parsedNode.type as keyof typeof LEGACY_TYPE_MAP],
+            },
+          };
+        });
+        return { ...active, nodes };
+      }
 
       const latest = await ctx.prisma.nodeConfig.findFirst({
         where: { siteGroupId: input.siteGroupId },
@@ -49,39 +71,119 @@ export const nodeConfigRouter = router({
       });
       if (!sg) throw new TRPCError({ code: 'FORBIDDEN' });
 
+      for (const node of input.nodes) {
+        const parsedNode = z
+          .object({
+            data: z.object({ deviceTypeId: z.string().optional() }).optional(),
+          })
+          .passthrough()
+          .parse(node);
+        const deviceTypeId = parsedNode.data?.deviceTypeId;
+        if (!deviceTypeId) continue;
+        try {
+          assertKnownDeviceType(deviceTypeId);
+        } catch {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: `Unknown device-type: ${deviceTypeId}` });
+        }
+      }
+
       // Find the latest version
       const latest = await ctx.prisma.nodeConfig.findFirst({
         where: { siteGroupId: input.siteGroupId },
         orderBy: { version: 'desc' },
       });
 
-      if (!latest || latest.isActive) {
-        // Create a new draft version
-        const nextVersion = latest ? latest.version + 1 : 1;
-        return ctx.prisma.nodeConfig.create({
-          data: {
+      type ConfigNode = { id: string; data?: { deviceTypeId?: string; config?: unknown } };
+      type ConfigEdge = { source?: string; target?: string };
+
+      const previousNodes = latest ? ((latest.nodes as unknown as ConfigNode[]) ?? []) : [];
+      const newNodes = input.nodes as ConfigNode[];
+      const newEdges = input.edges as ConfigEdge[];
+
+      const persisted = await (!latest || latest.isActive
+        ? ctx.prisma.nodeConfig.create({
+            data: {
+              siteGroupId: input.siteGroupId,
+              version: latest ? latest.version + 1 : 1,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              nodes: input.nodes as any,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              edges: input.edges as any,
+              isActive: false,
+            },
+          })
+        : ctx.prisma.nodeConfig.update({
+            where: { id: latest.id },
+            data: {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              nodes: input.nodes as any,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              edges: input.edges as any,
+              updatedAt: new Date(),
+            },
+          }));
+
+      const prevIds = new Set(previousNodes.map((n) => n.id));
+      const newIds = new Set(newNodes.map((n) => n.id));
+      const added = newNodes.filter((n) => !prevIds.has(n.id));
+      const removed = previousNodes.filter((n) => !newIds.has(n.id));
+
+      const findParentCanvasNodeId = (canvasNodeId: string): string | null => {
+        const edge = newEdges.find((candidate) => candidate.target === canvasNodeId);
+        return edge?.source ?? null;
+      };
+
+      for (const node of added) {
+        const parentCanvasNodeId = findParentCanvasNodeId(node.id);
+        let parentDeviceKey: string | null = null;
+        if (parentCanvasNodeId) {
+          const parent = await ctx.prisma.device.findUnique({
+            where: {
+              siteGroupId_canvasNodeId: {
+                siteGroupId: input.siteGroupId,
+                canvasNodeId: parentCanvasNodeId,
+              },
+            },
+            select: { deviceKey: true },
+          });
+          parentDeviceKey = parent?.deviceKey ?? null;
+        }
+
+        await createDeviceInternal(
+          {
             siteGroupId: input.siteGroupId,
-            version: nextVersion,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            nodes: input.nodes as any,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            edges: input.edges as any,
-            isActive: false,
+            canvasNodeId: node.id,
+            deviceTypeId: node.data?.deviceTypeId ?? 'core-generic-sensor',
+            parentDeviceKey,
+            config: (node.data?.config ?? {}) as object,
+            simulationDesired: true,
+            orgId: ctx.orgId!,
+            userId: ctx.userId,
           },
+          ctx.prisma,
+        );
+      }
+
+      for (const node of removed) {
+        const device = await ctx.prisma.device.findUnique({
+          where: {
+            siteGroupId_canvasNodeId: {
+              siteGroupId: input.siteGroupId,
+              canvasNodeId: node.id,
+            },
+          },
+          select: { deviceKey: true },
+        });
+        if (!device) continue;
+        await deleteDeviceInternal({
+          deviceKey: device.deviceKey,
+          db: ctx.prisma,
+          orgId: ctx.orgId!,
+          userId: ctx.userId,
         });
       }
 
-      // Update the existing draft in place
-      return ctx.prisma.nodeConfig.update({
-        where: { id: latest.id },
-        data: {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          nodes: input.nodes as any,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          edges: input.edges as any,
-          updatedAt: new Date(),
-        },
-      });
+      return persisted;
     }),
 
   /**

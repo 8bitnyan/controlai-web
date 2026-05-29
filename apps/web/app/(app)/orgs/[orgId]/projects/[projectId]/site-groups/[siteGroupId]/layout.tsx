@@ -16,6 +16,7 @@ interface LayoutProps {
 const TABS = [
   { label: 'Canvas', suffix: '' },
   { label: 'Sites', suffix: '/sites' },
+  { label: 'Devices', suffix: '/devices' },
   { label: 'Dashboard', suffix: '/dashboard' },
   { label: 'Gateways', suffix: '/gateways' },
 ] as const;

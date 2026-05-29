@@ -11,32 +11,68 @@ import {
   type Connection,
   addEdge,
 } from '@xyflow/react';
+import {
+  assertKnownDeviceType,
+  defaultNodeData,
+  getDeviceType,
+} from '@controlai-web/shared-types';
 import type { NodeData } from '@controlai-web/shared-types';
 
 const MAX_HISTORY = 50;
+type ManifestCanvasNodeData = {
+  deviceTypeId?: string;
+  category?: string;
+  label?: string;
+  visual?: { iconRef?: string; accentColor?: string };
+  config?: Record<string, unknown>;
+  status?: string;
+  msgPerSec?: number;
+  __orphan?: boolean;
+  [k: string]: unknown;
+};
+type CanvasNodeData = NodeData | ManifestCanvasNodeData;
 
 interface HistoryEntry {
-  nodes: Node<NodeData>[];
+  nodes: Node<CanvasNodeData>[];
   edges: Edge[];
 }
 
+export type DeviceRow = {
+  deviceKey: string;
+  deviceTypeId: string;
+  registrationState: 'UNREGISTERED' | 'REGISTERING' | 'REGISTERED' | 'ORPHANED';
+  realUuid?: string | null;
+  shadowUuid: string;
+  parentDeviceKey?: string | null;
+  siteId?: string | null;
+  simulationDesired: boolean;
+  config: Record<string, unknown>;
+};
+
 interface CanvasState {
-  nodes: Node<NodeData>[];
+  nodes: Node<CanvasNodeData>[];
   edges: Edge[];
   past: HistoryEntry[];
   future: HistoryEntry[];
   isDirty: boolean;
   lastSaved: Date | null;
   sseStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
+  nodeDevices: Map<string, DeviceRow>;
 
   // Graph mutations (push to history)
-  setNodes: (nodes: Node<NodeData>[]) => void;
+  setNodes: (nodes: Node<CanvasNodeData>[]) => void;
   setEdges: (edges: Edge[]) => void;
-  onNodesChange: (changes: NodeChange<Node<NodeData>>[]) => void;
+  onNodesChange: (changes: NodeChange<Node<CanvasNodeData>>[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
   onConnect: (connection: Connection) => void;
-  addNode: (node: Node<NodeData>) => void;
-  updateNodeData: (nodeId: string, data: Partial<NodeData>) => void;
+  addNode: (deviceTypeId: string, position: { x: number; y: number }) => void;
+  updateNodeData: (nodeId: string, data: Partial<CanvasNodeData>) => void;
+  replaceDeviceType: (nodeId: string, newDeviceTypeId: string) => void;
+  insertAutoCreatedNode: (
+    spec: { deviceTypeId: string; parentNodeId: string; label: string },
+    gatewayPosition: { x: number; y: number },
+    idx: number,
+  ) => string;
 
   // Undo/redo
   undo: () => void;
@@ -55,10 +91,23 @@ interface CanvasState {
   setSseStatus: (status: 'disconnected' | 'connecting' | 'connected' | 'error') => void;
 
   // Load from server
-  loadConfig: (nodes: Node<NodeData>[], edges: Edge[]) => void;
+  loadConfig: (nodes: Node<CanvasNodeData>[], edges: Edge[]) => void;
+
+  // Device map state
+  setNodeDevice: (canvasNodeId: string, device: DeviceRow) => void;
+  removeNodeDevice: (canvasNodeId: string) => void;
+  bulkSetNodeDevices: (devices: Array<{ canvasNodeId: string; device: DeviceRow }>) => void;
+
+  // Device selectors
+  getDeviceByCanvasNodeId: (canvasNodeId: string) => DeviceRow | undefined;
+  getDevicesBySimulationDesired: () => {
+    allDesired: boolean;
+    allNotDesired: boolean;
+    mixed: boolean;
+  };
 }
 
-function snapshot(state: { nodes: Node<NodeData>[]; edges: Edge[] }): HistoryEntry {
+function snapshot(state: { nodes: Node<CanvasNodeData>[]; edges: Edge[] }): HistoryEntry {
   return { nodes: [...state.nodes], edges: [...state.edges] };
 }
 
@@ -79,6 +128,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   isDirty: false,
   lastSaved: null,
   sseStatus: 'disconnected',
+  nodeDevices: new Map(),
   canUndo: false,
   canRedo: false,
 
@@ -156,8 +206,21 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     });
   },
 
-  addNode: (node) => {
+  addNode: (deviceTypeOrNode, position) => {
     const state = get();
+    const node: Node<CanvasNodeData> =
+      typeof deviceTypeOrNode === 'string'
+        ? (() => {
+            assertKnownDeviceType(deviceTypeOrNode);
+            const manifest = getDeviceType(deviceTypeOrNode)!;
+            return {
+              id: crypto.randomUUID(),
+              type: manifest.category,
+              position: position!,
+              data: defaultNodeData(deviceTypeOrNode),
+            };
+          })()
+        : deviceTypeOrNode;
     const newNodes = [...state.nodes, node];
     set({
       past: pushHistory(state.past, snapshot(state)),
@@ -172,7 +235,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   updateNodeData: (nodeId, data) => {
     const state = get();
     const newNodes = state.nodes.map((n) =>
-      n.id === nodeId ? { ...n, data: { ...n.data, ...data } as NodeData } : n,
+      n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n,
     );
     set({
       past: pushHistory(state.past, snapshot(state)),
@@ -182,6 +245,70 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       canUndo: true,
       canRedo: false,
     });
+  },
+
+  replaceDeviceType: (nodeId, newDeviceTypeId) => {
+    const state = get();
+    assertKnownDeviceType(newDeviceTypeId);
+    const manifest = getDeviceType(newDeviceTypeId)!;
+    const newNodes = state.nodes.map((n) =>
+      n.id === nodeId
+        ? {
+            ...n,
+            type: manifest.category,
+            data: {
+              ...n.data,
+              deviceTypeId: newDeviceTypeId,
+              __orphan: false,
+            },
+          }
+        : n,
+    );
+    set({
+      past: pushHistory(state.past, snapshot(state)),
+      future: [],
+      nodes: newNodes,
+      isDirty: true,
+      canUndo: true,
+      canRedo: false,
+    });
+  },
+
+  insertAutoCreatedNode: (spec, gatewayPosition, idx) => {
+    const state = get();
+    assertKnownDeviceType(spec.deviceTypeId);
+    const manifest = getDeviceType(spec.deviceTypeId)!;
+    const canvasNodeId = crypto.randomUUID();
+    const node: Node<CanvasNodeData> = {
+      id: canvasNodeId,
+      type: manifest.category,
+      position: {
+        x: gatewayPosition.x + 200 + idx * 40,
+        y: gatewayPosition.y + 100 + idx * 40,
+      },
+      data: {
+        ...defaultNodeData(spec.deviceTypeId),
+        label: spec.label,
+      },
+    };
+    const edge: Edge = {
+      id: `${spec.parentNodeId}-${canvasNodeId}`,
+      source: spec.parentNodeId,
+      target: canvasNodeId,
+      animated: false,
+    };
+
+    set({
+      past: pushHistory(state.past, snapshot(state)),
+      future: [],
+      nodes: [...state.nodes, node],
+      edges: [...state.edges, edge],
+      isDirty: true,
+      canUndo: true,
+      canRedo: false,
+    });
+
+    return canvasNodeId;
   },
 
   undo: () => {
@@ -234,8 +361,20 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setSseStatus: (sseStatus) => set({ sseStatus }),
 
   loadConfig: (nodes, edges) => {
+    const hydratedNodes = nodes.map((node) => {
+      const deviceTypeId = (node.data as { deviceTypeId?: string } | undefined)?.deviceTypeId;
+      if (!deviceTypeId || !getDeviceType(deviceTypeId)) {
+        return {
+          ...node,
+          type: 'orphan',
+          data: { ...node.data, __orphan: true },
+        };
+      }
+
+      return node;
+    });
     set({
-      nodes,
+      nodes: hydratedNodes,
       edges,
       past: [],
       future: [],
@@ -244,5 +383,45 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       canUndo: false,
       canRedo: false,
     });
+  },
+
+  setNodeDevice: (canvasNodeId, device) => {
+    set((state) => {
+      const next = new Map(state.nodeDevices);
+      next.set(canvasNodeId, device);
+      return { nodeDevices: next };
+    });
+  },
+
+  removeNodeDevice: (canvasNodeId) => {
+    set((state) => {
+      const next = new Map(state.nodeDevices);
+      next.delete(canvasNodeId);
+      return { nodeDevices: next };
+    });
+  },
+
+  bulkSetNodeDevices: (devices) => {
+    const next = new Map<string, DeviceRow>();
+    for (const row of devices) {
+      next.set(row.canvasNodeId, row.device);
+    }
+    set({ nodeDevices: next });
+  },
+
+  getDeviceByCanvasNodeId: (canvasNodeId) => get().nodeDevices.get(canvasNodeId),
+
+  getDevicesBySimulationDesired: () => {
+    const values = Array.from(get().nodeDevices.values());
+    if (values.length === 0) {
+      return { allDesired: false, allNotDesired: false, mixed: false };
+    }
+    const allDesired = values.every((device) => device.simulationDesired);
+    const allNotDesired = values.every((device) => !device.simulationDesired);
+    return {
+      allDesired,
+      allNotDesired,
+      mixed: !allDesired && !allNotDesired,
+    };
   },
 }));

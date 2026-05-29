@@ -1,6 +1,7 @@
 import mqtt, { type MqttClient } from 'mqtt';
 import { checkServerIdentity as tlsCheckServerIdentity } from 'node:tls';
 import { decode as cborDecode } from 'cbor-x';
+import { prisma } from '@controlai-web/db';
 import { sseFanout } from './sse-fanout';
 import { writeMessage } from './redis-writer';
 
@@ -13,6 +14,16 @@ interface SiteClientState {
 const IDLE_TIMEOUT_MS = 60_000;
 const MIN_BACKOFF_MS = 1_000;
 const MAX_BACKOFF_MS = 30_000;
+const LAST_SEEN_THROTTLE_MS = 30_000;
+const MODULES_NDATA_TOPIC_RE = /^modules\/[^/]+\/NDATA\/([^/]+)$/;
+
+const lastSeenWriteByDeviceKey = new Map<string, number>();
+
+const logger = {
+  warn: (payload: { event: string; err: unknown }) => {
+    console.warn(payload);
+  },
+};
 
 /** Map<siteId, SiteClientState> */
 const clients = new Map<string, SiteClientState>();
@@ -119,6 +130,30 @@ function createClient(siteId: string, config: BrokerConfig): void {
       } catch {
         parsed = payload.toString();
       }
+    }
+
+    const ndataMatch = MODULES_NDATA_TOPIC_RE.exec(topic);
+    if (ndataMatch) {
+      const clientId = ndataMatch[1];
+      void prisma.gateway
+        .findFirst({
+          where: { clientId },
+          select: { deviceKey: true },
+        })
+        .then((gateway) => {
+          if (!gateway?.deviceKey) return;
+          const now = Date.now();
+          const lastWriteTs = lastSeenWriteByDeviceKey.get(gateway.deviceKey);
+          if (lastWriteTs !== undefined && now - lastWriteTs <= LAST_SEEN_THROTTLE_MS) return;
+          lastSeenWriteByDeviceKey.set(gateway.deviceKey, now);
+          void prisma.device
+            .update({
+              where: { deviceKey: gateway.deviceKey },
+              data: { lastSeenAt: new Date() },
+            })
+            .catch((err: unknown) => logger.warn({ event: 'device-lastseen-update-failed', err }));
+        })
+        .catch((err: unknown) => logger.warn({ event: 'device-lastseen-update-failed', err }));
     }
 
     const message = JSON.stringify({

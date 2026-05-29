@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow,
   Background,
@@ -16,16 +16,12 @@ import {
 import '@xyflow/react/dist/style.css';
 import { toast } from 'sonner';
 import { useCanvasStore } from '@/stores/canvas-store';
-import { isValidConnection as checkConnectionValid } from './connection-rules';
-import type { NodeData, NodeType } from '@controlai-web/shared-types';
-import { defaultNodeData } from '@controlai-web/shared-types';
-import { SensorNode } from './nodes/sensor-node';
-import { GatewayNode } from './nodes/gateway-node';
-import { BrokerNode } from './nodes/broker-node';
-import { IngestNode } from './nodes/ingest-node';
-import { TimescaleDBNode } from './nodes/timescaledb-node';
-import { MonitoringNode } from './nodes/monitoring-node';
+import { validateConnection, LEGACY_TYPE_MAP } from '@controlai-web/shared-types';
+import DeviceNode from './nodes/device-node';
+import OrphanNode from './nodes/orphan-node';
 import { NodePalette } from './node-palette';
+import { SimulationToggle } from '@/components/canvas/simulation-toggle';
+import { TopicSchemaPill } from '@/components/canvas/topic-schema-pill';
 import { ApplyModal } from './apply-modal';
 import { CanvasContextProvider } from './canvas-context';
 import { trpc } from '@/lib/trpc/client';
@@ -35,14 +31,7 @@ import { cn } from '@/lib/utils';
 import { useSiteStream } from '@/hooks/use-site-stream';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const NODE_TYPES: NodeTypes = {
-  sensor: SensorNode as any,
-  gateway: GatewayNode as any,
-  broker: BrokerNode as any,
-  ingest: IngestNode as any,
-  timescaledb: TimescaleDBNode as any,
-  monitoring: MonitoringNode as any,
-};
+const NODE_TYPES: NodeTypes = { sensor: DeviceNode as any, gateway: DeviceNode as any, broker: DeviceNode as any, ingest: DeviceNode as any, tsdb: DeviceNode as any, timescaledb: DeviceNode as any, monitoring: DeviceNode as any, orphan: OrphanNode as any };
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 interface CanvasProps {
@@ -50,6 +39,34 @@ interface CanvasProps {
   projectId: string;
   siteGroupId: string;
   siteId?: string; // for SSE telemetry
+}
+
+export function validateCanvasConnection(params: {
+  connection: Connection;
+  nodes: Node[];
+  edges: Edge[];
+}) {
+  const { connection, nodes, edges } = params;
+  const source = nodes.find((n) => n.id === connection.source);
+  const target = nodes.find((n) => n.id === connection.target);
+  if (!source || !target) return { ok: false, reason: 'Missing source or target node' as const };
+  return validateConnection({
+    sourceId: (source.data as { deviceTypeId?: string }).deviceTypeId ?? '',
+    sourcePortId: connection.sourceHandle ?? undefined,
+    sourceCurrentChildren: edges.filter((e) => e.source === connection.source).length,
+    targetId: (target.data as { deviceTypeId?: string }).deviceTypeId ?? '',
+    targetPortId: connection.targetHandle ?? undefined,
+    targetCurrentParents: edges.filter((e) => e.target === connection.target).length,
+  });
+}
+
+function toConnection(connection: Edge | Connection): Connection {
+  return {
+    source: connection.source,
+    target: connection.target,
+    sourceHandle: connection.sourceHandle ?? null,
+    targetHandle: connection.targetHandle ?? null,
+  };
 }
 
 export function Canvas({ orgId, projectId, siteGroupId, siteId }: CanvasProps) {
@@ -74,11 +91,22 @@ export function Canvas({ orgId, projectId, siteGroupId, siteId }: CanvasProps) {
     sseStatus,
     setSseStatus,
     updateNodeTelemetry,
+    getDeviceByCanvasNodeId,
   } = useCanvasStore();
+  const trpcUtils = trpc.useUtils();
 
   // Load initial config — narrow type to avoid TS2589 deep inference in useEffect deps
   const { data: rawNodeConfig } = trpc.nodeConfig.load.useQuery({ orgId, siteGroupId });
   const nodeConfig = rawNodeConfig as { nodes: unknown; edges: unknown } | null | undefined;
+  const { data: devices } = trpc.device.list.useQuery({ orgId, siteGroupId });
+
+  useEffect(() => {
+    if (!devices) return;
+    const deviceList = devices as Array<{ canvasNodeId: string }>;
+    useCanvasStore.getState().bulkSetNodeDevices(
+      deviceList.map((device) => ({ canvasNodeId: device.canvasNodeId, device: device as never })),
+    );
+  }, [devices]);
 
   useEffect(() => {
     if (nodeConfig) {
@@ -91,7 +119,10 @@ export function Canvas({ orgId, projectId, siteGroupId, siteId }: CanvasProps) {
 
   // Autosave: 30s after last change
   const saveMutation = trpc.nodeConfig.save.useMutation({
-    onSuccess: () => markSaved(),
+    onSuccess: async () => {
+      markSaved();
+      await trpcUtils.device.list.invalidate({ orgId, siteGroupId });
+    },
   });
 
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -140,22 +171,11 @@ export function Canvas({ orgId, projectId, siteGroupId, siteId }: CanvasProps) {
   });
 
   // Connection validation
-  const handleIsValidConnection = useCallback<IsValidConnection>(
-    (connection) => {
-      const valid = checkConnectionValid(connection as Connection, nodes as Node<NodeData>[]);
-      if (!valid) {
-        const sourceNode = nodes.find((n) => n.id === connection.source);
-        const targetNode = nodes.find((n) => n.id === connection.target);
-        if (sourceNode && targetNode) {
-          toast.error(
-            `Cannot connect ${sourceNode.type ?? '?'} → ${targetNode.type ?? '?'}`,
-          );
-        }
-      }
-      return valid;
-    },
-    [nodes],
-  );
+  const handleIsValidConnection = useCallback<IsValidConnection>((connection) => {
+    const result = validateCanvasConnection({ connection: toConnection(connection), nodes, edges });
+    if (!result.ok) toast.error(result.reason);
+    return result.ok;
+  }, [edges, nodes]);
 
   // Drag-and-drop from palette
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -166,22 +186,17 @@ export function Canvas({ orgId, projectId, siteGroupId, siteId }: CanvasProps) {
   const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
-      const nodeType = event.dataTransfer.getData('application/reactflow-nodetype') as NodeType;
-      if (!nodeType) return;
+      const deviceTypeId = event.dataTransfer.getData('application/reactflow-devicetypeid');
+      const legacyType = event.dataTransfer.getData('application/reactflow-nodetype') as keyof typeof LEGACY_TYPE_MAP;
+      const resolved = deviceTypeId || LEGACY_TYPE_MAP[legacyType];
+      if (!resolved) return toast.error('Unknown dropped node type');
 
       const position = screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
       });
 
-      const newNode: Node<NodeData> = {
-        id: crypto.randomUUID(),
-        type: nodeType,
-        position,
-        data: defaultNodeData(nodeType),
-      };
-
-      addNode(newNode);
+      addNode(resolved, position);
     },
     [screenToFlowPosition, addNode],
   );
@@ -207,6 +222,16 @@ export function Canvas({ orgId, projectId, siteGroupId, siteId }: CanvasProps) {
   const selectedEdges = edges.filter((e) => (e as Edge & { selected?: boolean }).selected);
 
   function handleDelete() {
+    const hasRegisteredNode = selectedNodes.some((node) => {
+      const device = getDeviceByCanvasNodeId(node.id);
+      return device && device.registrationState !== 'UNREGISTERED';
+    });
+
+    if (hasRegisteredNode) {
+      const confirmed = window.confirm('This device is REGISTERED. Deleting will mark it ORPHANED. Continue?');
+      if (!confirmed) return;
+    }
+
     deleteElements({ nodes: selectedNodes, edges: selectedEdges });
   }
 
@@ -215,6 +240,7 @@ export function Canvas({ orgId, projectId, siteGroupId, siteId }: CanvasProps) {
 
   // Controlled Apply modal state (shared by Apply button + Re-run button)
   const [applyOpen, setApplyOpen] = useState(false);
+  const hasOrphans = useMemo(() => nodes.some((n) => (n.data as { __orphan?: boolean })?.__orphan), [nodes]);
   const nodesWithUi = nodes.map((node) => node.type === 'broker'
     ? {
         ...node,
@@ -284,7 +310,7 @@ export function Canvas({ orgId, projectId, siteGroupId, siteId }: CanvasProps) {
             variant="outline"
             size="sm"
             onClick={handleManualSave}
-            disabled={!isDirty || saveMutation.isPending}
+            disabled={hasOrphans || !isDirty || saveMutation.isPending}
             title="Save now (⌘S)"
             aria-label="Save now"
           >
@@ -337,7 +363,10 @@ export function Canvas({ orgId, projectId, siteGroupId, siteId }: CanvasProps) {
             {sseStatus === 'connected' ? 'Live' : sseStatus === 'connecting' ? 'Connecting…' : 'Disconnected'}
           </span>
 
-          <Button size="sm" onClick={() => setApplyOpen(true)} aria-label="Apply pipeline configuration">
+          <SimulationToggle orgId={orgId} siteGroupId={siteGroupId} />
+          <TopicSchemaPill />
+
+          <Button size="sm" onClick={() => setApplyOpen(true)} aria-label="Apply pipeline configuration" disabled={hasOrphans} title={hasOrphans ? 'N nodes have unknown device types — migrate or delete before saving/applying' : undefined}>
             Apply
           </Button>
         </div>
@@ -374,7 +403,7 @@ export function Canvas({ orgId, projectId, siteGroupId, siteId }: CanvasProps) {
             edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
+            onConnect={(connection) => { if (handleIsValidConnection(connection)) onConnect(connection); }}
             isValidConnection={handleIsValidConnection}
             nodeTypes={NODE_TYPES}
             deleteKeyCode={['Backspace', 'Delete']}

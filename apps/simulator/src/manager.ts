@@ -2,12 +2,29 @@ import { EventEmitter } from 'events';
 import mqtt, { type MqttClient } from 'mqtt';
 import pino from 'pino';
 import { prisma } from '@controlai-web/db';
+import { Counter } from 'prom-client';
+import { TokenBucket } from '@controlai-web/shared-types';
 import { decryptToken } from './crypto.js';
-import type { GatewayDTO, SensorConfig } from '@controlai-web/shared-types';
+import type { GatewayDTO, SensorConfig } from './types.js';
+import { getDeviceType } from '@controlai-web/shared-types';
 import { topicFor, encodeNbirth, encodeNdata, encodeNdeath } from './cbor-codec.js';
 import { SignalGenerator } from './signal-generator.js';
 
-const logger = pino({ name: 'simulator-manager' });
+const SENSOR_TYPES = new Set(['temperature', 'pressure', 'humidity', 'vibration']);
+function isSensorType(value: unknown): value is SensorConfig['type'] {
+  return typeof value === 'string' && SENSOR_TYPES.has(value);
+}
+
+export const logger = pino({ name: 'simulator-manager' });
+const reconcileMs = Number(process.env.SIM_RECONCILE_MS ?? '5000');
+const rateCap = Number(process.env.SIM_RATE_CAP ?? '1000');
+const buckets = new Map<string, TokenBucket>();
+const siteGroupLoops = new Map<string, ReturnType<typeof setInterval>>();
+const simRateCapDelays = new Counter({
+  name: 'sim_rate_cap_delays_total',
+  help: 'Count of simulator publish delay events caused by rate cap',
+  labelNames: ['siteGroupId'],
+});
 
 export interface GatewayStatusEvent {
   gatewayId: string;
@@ -28,6 +45,7 @@ interface GatewayRuntime {
   intervals: ReturnType<typeof setInterval>[];
   generators: Map<string, SignalGenerator>;
   gatewayId: string;
+  siteGroupId: string;
 }
 
 export const simulatorEvents = new EventEmitter();
@@ -35,6 +53,29 @@ simulatorEvents.setMaxListeners(200);
 
 /** Map<gatewayId, GatewayRuntime> */
 const runtimes = new Map<string, GatewayRuntime>();
+
+function getBucket(siteGroupId: string): TokenBucket {
+  const existing = buckets.get(siteGroupId);
+  if (existing) return existing;
+  const next = new TokenBucket({ capacity: rateCap, refillPerSec: rateCap });
+  buckets.set(siteGroupId, next);
+  return next;
+}
+
+export function resolveSensorRuntime(sensor: SensorConfig): SensorConfig {
+  const manifest = (sensor.deviceTypeId ? getDeviceType(sensor.deviceTypeId) : null) ?? getDeviceType('core-generic-sensor');
+  if (!manifest) {
+    throw new Error('Missing required core-generic-sensor device manifest');
+  }
+
+  const intervalMs = Math.max(sensor.intervalMs ?? manifest.defaultSignal?.rateMs ?? 1000, manifest.constraints.minIntervalMs ?? 100);
+
+  return {
+    ...sensor,
+    intervalMs,
+    deviceTypeId: manifest.id,
+  };
+}
 
 function emitStatus(gatewayId: string, status: string, error?: string): void {
   const evt: GatewayStatusEvent = { gatewayId, status, error };
@@ -65,6 +106,7 @@ async function loadGateway(gatewayId: string): Promise<GatewayDTO & {
     brokerPort: row.brokerPort,
     groupId: row.groupId,
     clientId: row.clientId,
+    hasCerts: Boolean(row.rootCaPemEnc && row.clientCertPemEnc && row.clientKeyPemEnc),
     sensors: row.sensors as unknown as SensorConfig[],
     jsonTopicTemplate: row.jsonTopicTemplate,
     desiredState: row.desiredState as GatewayDTO['desiredState'],
@@ -83,7 +125,7 @@ async function updateStatus(gatewayId: string, status: string, error?: string | 
   });
 }
 
-export async function startGateway(gatewayId: string): Promise<void> {
+export async function startGateway(gatewayId: string, sensorsOverride?: SensorConfig[]): Promise<void> {
   if (runtimes.has(gatewayId)) {
     logger.info({ gatewayId }, 'Gateway already running');
     return;
@@ -94,7 +136,7 @@ export async function startGateway(gatewayId: string): Promise<void> {
   const clientCertPem = decryptToken(gw.clientCertPemEnc);
   const clientKeyPem = decryptToken(gw.clientKeyPemEnc);
 
-  const sensors = gw.sensors as SensorConfig[];
+  const sensors = (sensorsOverride ?? (gw.sensors as SensorConfig[])).map((sensor) => resolveSensorRuntime(sensor));
 
   // Build LWT for cbor mode
   const ndeath = gw.mode === 'cbor-modules-cloud' ? encodeNdeath(gw) : null;
@@ -145,7 +187,7 @@ export async function startGateway(gatewayId: string): Promise<void> {
   }
 
   const intervals: ReturnType<typeof setInterval>[] = [];
-  const runtime: GatewayRuntime = { client, intervals, generators, gatewayId };
+  const runtime: GatewayRuntime = { client, intervals, generators, gatewayId, siteGroupId: gw.siteGroupId };
   runtimes.set(gatewayId, runtime);
 
   client.on('connect', () => {
@@ -172,9 +214,15 @@ export async function startGateway(gatewayId: string): Promise<void> {
     for (const sensor of sensors) {
       const gen = generators.get(sensor.id)!;
       const interval = setInterval(() => {
+        void (async () => {
         if (!client.connected) return;
         const value = gen.next();
         const ts = Date.now();
+        const startTs = Date.now();
+        await getBucket(gw.siteGroupId).acquire();
+        if (Date.now() - startTs > 0) {
+          simRateCapDelays.inc({ siteGroupId: gw.siteGroupId });
+        }
 
         if (gw.mode === 'cbor-modules-cloud') {
           const readings = [{ sensorId: sensor.id, value, ts }];
@@ -204,6 +252,7 @@ export async function startGateway(gatewayId: string): Promise<void> {
             readings: [{ sensorId: sensor.id, value }],
           });
         }
+        })();
       }, sensor.intervalMs);
       intervals.push(interval);
     }
@@ -275,4 +324,68 @@ export function gatewayStatus(gatewayId: string): { status: string; connected: b
 
 export function activeGatewayIds(): string[] {
   return Array.from(runtimes.keys());
+}
+
+export async function reconcileSiteGroup(siteGroupId: string): Promise<void> {
+  const devices = await prisma.device.findMany({
+    where: { siteGroupId, simulationDesired: true },
+    include: { children: true },
+    orderBy: { parentDeviceKey: 'asc' },
+  });
+
+  const byParent = new Map<string | null, typeof devices>();
+  for (const device of devices) {
+    const key = device.parentDeviceKey;
+    const group = byParent.get(key) ?? [];
+    group.push(device);
+    byParent.set(key, group);
+  }
+
+  const parentDevices = byParent.get(null) ?? [];
+  const desiredGatewayIds = new Set<string>();
+  for (const gatewayDevice of parentDevices) {
+    const manifest = getDeviceType(gatewayDevice.deviceTypeId);
+    if (!manifest || manifest.category !== 'gateway') continue;
+    const gateway = await prisma.gateway.findUnique({ where: { deviceKey: gatewayDevice.deviceKey } });
+    if (!gateway) continue;
+    desiredGatewayIds.add(gateway.id);
+    const children = byParent.get(gatewayDevice.deviceKey) ?? [];
+    if (children.length === 0) {
+      logger.warn({ event: 'sim-falling-back-to-jsonb', gatewayId: gateway.id });
+      await startGateway(gateway.id);
+      continue;
+    }
+    const sensors: SensorConfig[] = children.map((child) => {
+      const signal = ((child.config as Record<string, unknown> | null)?.signal ?? {}) as Record<string, unknown>;
+      const manifest = getDeviceType(child.deviceTypeId);
+      const defaults = manifest?.defaultSignal;
+      const sensorType: SensorConfig['type'] = isSensorType(signal.type) ? signal.type : 'temperature';
+      return {
+        id: child.canvasNodeId,
+        label: child.canvasNodeId,
+        unit: typeof signal.unit === 'string' ? signal.unit : defaults?.units ?? 'raw',
+        type: sensorType,
+        pattern: typeof signal.pattern === 'string' ? signal.pattern : 'random',
+        min: typeof signal.min === 'number' ? signal.min : 0,
+        max: typeof signal.max === 'number' ? signal.max : 100,
+        walkStep: typeof signal.walkStep === 'number' ? signal.walkStep : 1,
+        intervalMs: typeof signal.intervalMs === 'number' ? signal.intervalMs : defaults?.rateMs ?? 1000,
+        deviceTypeId: child.deviceTypeId,
+      };
+    });
+    await startGateway(gateway.id, sensors);
+  }
+
+  for (const runtime of runtimes.values()) {
+    if (runtime.siteGroupId === siteGroupId && !desiredGatewayIds.has(runtime.gatewayId)) {
+      await stopGateway(runtime.gatewayId);
+    }
+  }
+
+  if (!siteGroupLoops.has(siteGroupId)) {
+    const loop = setInterval(() => {
+      void reconcileSiteGroup(siteGroupId);
+    }, reconcileMs);
+    siteGroupLoops.set(siteGroupId, loop);
+  }
 }

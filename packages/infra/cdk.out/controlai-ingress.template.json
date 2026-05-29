@@ -1,0 +1,754 @@
+{
+ "Resources": {
+  "DaemonAlb8469D036": {
+   "Type": "AWS::ElasticLoadBalancingV2::LoadBalancer",
+   "Properties": {
+    "LoadBalancerAttributes": [
+     {
+      "Key": "deletion_protection.enabled",
+      "Value": "false"
+     }
+    ],
+    "Scheme": "internet-facing",
+    "SecurityGroups": [
+     {
+      "Fn::GetAtt": [
+       "DaemonAlbSecurityGroup71C87C06",
+       "GroupId"
+      ]
+     }
+    ],
+    "Subnets": [
+     {
+      "Fn::ImportValue": "controlai-network:ExportsOutputRefDaemonVpcpublicSubnet1Subnet92A67A030C76941C"
+     },
+     {
+      "Fn::ImportValue": "controlai-network:ExportsOutputRefDaemonVpcpublicSubnet2Subnet77EC010EBB8A6C28"
+     }
+    ],
+    "Type": "application"
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/DaemonAlb/Resource"
+   }
+  },
+  "DaemonAlbSecurityGroup71C87C06": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "Automatically created Security Group for ELB controlaiingressDaemonAlbF5C63527",
+    "SecurityGroupIngress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow from anyone on port 443",
+      "FromPort": 443,
+      "IpProtocol": "tcp",
+      "ToPort": 443
+     },
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow from anyone on port 80",
+      "FromPort": 80,
+      "IpProtocol": "tcp",
+      "ToPort": 80
+     }
+    ],
+    "VpcId": {
+     "Fn::ImportValue": "controlai-network:ExportsOutputRefDaemonVpc4F414DD9BCA9D7BA"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/DaemonAlb/SecurityGroup/Resource"
+   }
+  },
+  "DaemonAlbSecurityGrouptocontrolaiingressCaddySecurityGroup8D0D88C8803970ED51": {
+   "Type": "AWS::EC2::SecurityGroupEgress",
+   "Properties": {
+    "Description": "Load balancer to target",
+    "DestinationSecurityGroupId": {
+     "Fn::GetAtt": [
+      "CaddySecurityGroup1D1E9435",
+      "GroupId"
+     ]
+    },
+    "FromPort": 80,
+    "GroupId": {
+     "Fn::GetAtt": [
+      "DaemonAlbSecurityGroup71C87C06",
+      "GroupId"
+     ]
+    },
+    "IpProtocol": "tcp",
+    "ToPort": 80
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/DaemonAlb/SecurityGroup/to controlaiingressCaddySecurityGroup8D0D88C8:80"
+   }
+  },
+  "DaemonAlbHttpsListenerE3C7303F": {
+   "Type": "AWS::ElasticLoadBalancingV2::Listener",
+   "Properties": {
+    "Certificates": [
+     {
+      "CertificateArn": {
+       "Fn::ImportValue": "controlai-dns:ExportsOutputRefDaemonsWildcardCertificateB0AFA43DCEDD0231"
+      }
+     }
+    ],
+    "DefaultActions": [
+     {
+      "TargetGroupArn": {
+       "Ref": "CaddyTargetGroup1F3C544F"
+      },
+      "Type": "forward"
+     }
+    ],
+    "LoadBalancerArn": {
+     "Ref": "DaemonAlb8469D036"
+    },
+    "Port": 443,
+    "Protocol": "HTTPS"
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/DaemonAlb/HttpsListener/Resource"
+   }
+  },
+  "DaemonAlbHttpListener2967A9EC": {
+   "Type": "AWS::ElasticLoadBalancingV2::Listener",
+   "Properties": {
+    "DefaultActions": [
+     {
+      "RedirectConfig": {
+       "Port": "443",
+       "Protocol": "HTTPS",
+       "StatusCode": "HTTP_301"
+      },
+      "Type": "redirect"
+     }
+    ],
+    "LoadBalancerArn": {
+     "Ref": "DaemonAlb8469D036"
+    },
+    "Port": 80,
+    "Protocol": "HTTP"
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/DaemonAlb/HttpListener/Resource"
+   }
+  },
+  "CaddySecurityGroup1D1E9435": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "Security group for Caddy ingress service",
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow all outbound traffic by default",
+      "IpProtocol": "-1"
+     }
+    ],
+    "SecurityGroupIngress": [
+     {
+      "CidrIp": "10.20.0.0/16",
+      "Description": "Allow VPC access to Caddy admin API",
+      "FromPort": 2019,
+      "IpProtocol": "tcp",
+      "ToPort": 2019
+     }
+    ],
+    "VpcId": {
+     "Fn::ImportValue": "controlai-network:ExportsOutputRefDaemonVpc4F414DD9BCA9D7BA"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/CaddySecurityGroup/Resource"
+   }
+  },
+  "CaddySecurityGroupfromcontrolaiingressDaemonAlbSecurityGroup60BAFDBA8030B510AF": {
+   "Type": "AWS::EC2::SecurityGroupIngress",
+   "Properties": {
+    "Description": "Allow ALB to reach Caddy",
+    "FromPort": 80,
+    "GroupId": {
+     "Fn::GetAtt": [
+      "CaddySecurityGroup1D1E9435",
+      "GroupId"
+     ]
+    },
+    "IpProtocol": "tcp",
+    "SourceSecurityGroupId": {
+     "Fn::GetAtt": [
+      "DaemonAlbSecurityGroup71C87C06",
+      "GroupId"
+     ]
+    },
+    "ToPort": 80
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/CaddySecurityGroup/from controlaiingressDaemonAlbSecurityGroup60BAFDBA:80"
+   }
+  },
+  "DaemonsNamespaceD4AB3E74": {
+   "Type": "AWS::ServiceDiscovery::PrivateDnsNamespace",
+   "Properties": {
+    "Name": "daemons.local",
+    "Vpc": {
+     "Fn::ImportValue": "controlai-network:ExportsOutputRefDaemonVpc4F414DD9BCA9D7BA"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/DaemonsNamespace/Resource"
+   }
+  },
+  "DaemonCloudMapServiceBCEE2842": {
+   "Type": "AWS::ServiceDiscovery::Service",
+   "Properties": {
+    "DnsConfig": {
+     "DnsRecords": [
+      {
+       "TTL": 10,
+       "Type": "A"
+      }
+     ],
+     "NamespaceId": {
+      "Fn::GetAtt": [
+       "DaemonsNamespaceD4AB3E74",
+       "Id"
+      ]
+     },
+     "RoutingPolicy": "MULTIVALUE"
+    },
+    "Name": "daemons",
+    "NamespaceId": {
+     "Fn::GetAtt": [
+      "DaemonsNamespaceD4AB3E74",
+      "Id"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/DaemonCloudMapService/Resource"
+   }
+  },
+  "CaddyTaskDefinitionTaskRoleFCE487DA": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "ecs-tasks.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/CaddyTaskDefinition/TaskRole/Resource"
+   }
+  },
+  "CaddyTaskDefinition4BC0F616": {
+   "Type": "AWS::ECS::TaskDefinition",
+   "Properties": {
+    "ContainerDefinitions": [
+     {
+      "Essential": true,
+      "Image": "caddy:2-alpine",
+      "LogConfiguration": {
+       "LogDriver": "awslogs",
+       "Options": {
+        "awslogs-group": {
+         "Ref": "CaddyTaskDefinitionCaddyContainerLogGroup8E8CFCC3"
+        },
+        "awslogs-stream-prefix": "caddy",
+        "awslogs-region": "ap-northeast-2"
+       }
+      },
+      "Name": "CaddyContainer",
+      "PortMappings": [
+       {
+        "ContainerPort": 80,
+        "Protocol": "tcp"
+       },
+       {
+        "ContainerPort": 2019,
+        "Protocol": "tcp"
+       }
+      ]
+     }
+    ],
+    "Cpu": "256",
+    "ExecutionRoleArn": {
+     "Fn::GetAtt": [
+      "CaddyTaskDefinitionExecutionRole2CEC5500",
+      "Arn"
+     ]
+    },
+    "Family": "controlaiingressCaddyTaskDefinition3B221F16",
+    "Memory": "512",
+    "NetworkMode": "awsvpc",
+    "RequiresCompatibilities": [
+     "FARGATE"
+    ],
+    "TaskRoleArn": {
+     "Fn::GetAtt": [
+      "CaddyTaskDefinitionTaskRoleFCE487DA",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/CaddyTaskDefinition/Resource"
+   }
+  },
+  "CaddyTaskDefinitionCaddyContainerLogGroup8E8CFCC3": {
+   "Type": "AWS::Logs::LogGroup",
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/CaddyTaskDefinition/CaddyContainer/LogGroup/Resource"
+   }
+  },
+  "CaddyTaskDefinitionExecutionRole2CEC5500": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "ecs-tasks.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/CaddyTaskDefinition/ExecutionRole/Resource"
+   }
+  },
+  "CaddyTaskDefinitionExecutionRoleDefaultPolicy6AA3D538": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "CaddyTaskDefinitionCaddyContainerLogGroup8E8CFCC3",
+         "Arn"
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "CaddyTaskDefinitionExecutionRoleDefaultPolicy6AA3D538",
+    "Roles": [
+     {
+      "Ref": "CaddyTaskDefinitionExecutionRole2CEC5500"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/CaddyTaskDefinition/ExecutionRole/DefaultPolicy/Resource"
+   }
+  },
+  "CaddyService51FA070F": {
+   "Type": "AWS::ECS::Service",
+   "Properties": {
+    "Cluster": {
+     "Fn::ImportValue": "controlai-ecs:ExportsOutputRefDaemonCluster70162C99C61B0006"
+    },
+    "DeploymentConfiguration": {
+     "Alarms": {
+      "AlarmNames": [],
+      "Enable": false,
+      "Rollback": false
+     },
+     "MaximumPercent": 200,
+     "MinimumHealthyPercent": 50
+    },
+    "DesiredCount": 2,
+    "EnableECSManagedTags": false,
+    "HealthCheckGracePeriodSeconds": 60,
+    "LaunchType": "FARGATE",
+    "LoadBalancers": [
+     {
+      "ContainerName": "CaddyContainer",
+      "ContainerPort": 80,
+      "TargetGroupArn": {
+       "Ref": "CaddyTargetGroup1F3C544F"
+      }
+     }
+    ],
+    "NetworkConfiguration": {
+     "AwsvpcConfiguration": {
+      "AssignPublicIp": "DISABLED",
+      "SecurityGroups": [
+       {
+        "Fn::GetAtt": [
+         "CaddySecurityGroup1D1E9435",
+         "GroupId"
+        ]
+       }
+      ],
+      "Subnets": [
+       {
+        "Fn::ImportValue": "controlai-network:ExportsOutputRefDaemonVpcprivateSubnet1SubnetAC6BE40B1F39A9C7"
+       },
+       {
+        "Fn::ImportValue": "controlai-network:ExportsOutputRefDaemonVpcprivateSubnet2Subnet15E5F7C42737D7BF"
+       }
+      ]
+     }
+    },
+    "ServiceRegistries": [
+     {
+      "RegistryArn": {
+       "Fn::GetAtt": [
+        "CaddyServiceCloudmapServiceCD28A312",
+        "Arn"
+       ]
+      }
+     }
+    ],
+    "TaskDefinition": {
+     "Ref": "CaddyTaskDefinition4BC0F616"
+    }
+   },
+   "DependsOn": [
+    "CaddyTaskDefinitionTaskRoleFCE487DA",
+    "DaemonAlbHttpsListenerE3C7303F"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/CaddyService/Service"
+   }
+  },
+  "CaddyServiceCloudmapServiceCD28A312": {
+   "Type": "AWS::ServiceDiscovery::Service",
+   "Properties": {
+    "DnsConfig": {
+     "DnsRecords": [
+      {
+       "TTL": 60,
+       "Type": "A"
+      }
+     ],
+     "NamespaceId": {
+      "Fn::GetAtt": [
+       "DaemonsNamespaceD4AB3E74",
+       "Id"
+      ]
+     },
+     "RoutingPolicy": "MULTIVALUE"
+    },
+    "HealthCheckCustomConfig": {
+     "FailureThreshold": 1
+    },
+    "Name": "caddy",
+    "NamespaceId": {
+     "Fn::GetAtt": [
+      "DaemonsNamespaceD4AB3E74",
+      "Id"
+     ]
+    }
+   },
+   "DependsOn": [
+    "CaddyTaskDefinitionTaskRoleFCE487DA"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/CaddyService/CloudmapService/Resource"
+   }
+  },
+  "CaddyTargetGroup1F3C544F": {
+   "Type": "AWS::ElasticLoadBalancingV2::TargetGroup",
+   "Properties": {
+    "HealthCheckPath": "/health",
+    "Matcher": {
+     "HttpCode": "200-399"
+    },
+    "Port": 80,
+    "Protocol": "HTTP",
+    "TargetGroupAttributes": [
+     {
+      "Key": "stickiness.enabled",
+      "Value": "false"
+     }
+    ],
+    "TargetType": "ip",
+    "VpcId": {
+     "Fn::ImportValue": "controlai-network:ExportsOutputRefDaemonVpc4F414DD9BCA9D7BA"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/CaddyTargetGroup/Resource"
+   }
+  },
+  "DaemonFromCaddy": {
+   "Type": "AWS::EC2::SecurityGroupIngress",
+   "Properties": {
+    "Description": "Caddy -> daemon containers",
+    "FromPort": 80,
+    "GroupId": {
+     "Fn::ImportValue": "controlai-ecs:ExportsOutputFnGetAttDaemonSecurityGroup88E8CDCDGroupId8C867987"
+    },
+    "IpProtocol": "tcp",
+    "SourceSecurityGroupId": {
+     "Fn::GetAtt": [
+      "CaddySecurityGroup1D1E9435",
+      "GroupId"
+     ]
+    },
+    "ToPort": 80
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/DaemonFromCaddy"
+   }
+  },
+  "DaemonsWildcardAlias3D5EE21D": {
+   "Type": "AWS::Route53::RecordSet",
+   "Properties": {
+    "AliasTarget": {
+     "DNSName": {
+      "Fn::Join": [
+       "",
+       [
+        "dualstack.",
+        {
+         "Fn::GetAtt": [
+          "DaemonAlb8469D036",
+          "DNSName"
+         ]
+        }
+       ]
+      ]
+     },
+     "HostedZoneId": {
+      "Fn::GetAtt": [
+       "DaemonAlb8469D036",
+       "CanonicalHostedZoneID"
+      ]
+     }
+    },
+    "HostedZoneId": {
+     "Fn::ImportValue": "controlai-dns:ExportsOutputRefDaemonsHostedZone281E15A654E4696B"
+    },
+    "Name": "*.daemons.controlai.io.",
+    "Type": "A"
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/DaemonsWildcardAlias/Resource"
+   }
+  },
+  "EcsClusterNameParam5328DD48": {
+   "Type": "AWS::SSM::Parameter",
+   "Properties": {
+    "Name": "/controlai/infra/ECS_CLUSTER_NAME",
+    "Type": "String",
+    "Value": {
+     "Fn::ImportValue": "controlai-ecs:ExportsOutputRefDaemonCluster70162C99C61B0006"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/EcsClusterNameParam/Resource"
+   }
+  },
+  "EcsTaskRoleArnParamD0E2BAD5": {
+   "Type": "AWS::SSM::Parameter",
+   "Properties": {
+    "Name": "/controlai/infra/ECS_TASK_ROLE_ARN",
+    "Type": "String",
+    "Value": {
+     "Fn::ImportValue": "controlai-ecs:ExportsOutputFnGetAttDaemonTaskRole57363653ArnEFC355B2"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/EcsTaskRoleArnParam/Resource"
+   }
+  },
+  "EcsExecutionRoleArnParam72251F80": {
+   "Type": "AWS::SSM::Parameter",
+   "Properties": {
+    "Name": "/controlai/infra/ECS_EXECUTION_ROLE_ARN",
+    "Type": "String",
+    "Value": {
+     "Fn::ImportValue": "controlai-ecs:ExportsOutputFnGetAttDaemonExecutionRoleE49E45D9Arn67F5D151"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/EcsExecutionRoleArnParam/Resource"
+   }
+  },
+  "EcsSecurityGroupIdParamDB80A983": {
+   "Type": "AWS::SSM::Parameter",
+   "Properties": {
+    "Name": "/controlai/infra/ECS_SECURITY_GROUP_ID",
+    "Type": "String",
+    "Value": {
+     "Fn::ImportValue": "controlai-ecs:ExportsOutputFnGetAttDaemonSecurityGroup88E8CDCDGroupId8C867987"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/EcsSecurityGroupIdParam/Resource"
+   }
+  },
+  "EcsSubnetsParamC5EFF9D8": {
+   "Type": "AWS::SSM::Parameter",
+   "Properties": {
+    "Name": "/controlai/infra/ECS_SUBNETS",
+    "Type": "String",
+    "Value": {
+     "Fn::Join": [
+      ",",
+      [
+       {
+        "Fn::ImportValue": "controlai-network:ExportsOutputRefDaemonVpcprivateSubnet1SubnetAC6BE40B1F39A9C7"
+       },
+       {
+        "Fn::ImportValue": "controlai-network:ExportsOutputRefDaemonVpcprivateSubnet2Subnet15E5F7C42737D7BF"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/EcsSubnetsParam/Resource"
+   }
+  },
+  "CaddyAdminEndpointParam1617A24C": {
+   "Type": "AWS::SSM::Parameter",
+   "Properties": {
+    "Name": "/controlai/infra/CADDY_ADMIN_ENDPOINT",
+    "Type": "String",
+    "Value": "http://caddy.daemons.local:2019"
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/CaddyAdminEndpointParam/Resource"
+   }
+  },
+  "SecretsKmsKeyArnParamF1CB05F7": {
+   "Type": "AWS::SSM::Parameter",
+   "Properties": {
+    "Name": "/controlai/infra/SECRETS_KMS_KEY_ARN",
+    "Type": "String",
+    "Value": {
+     "Fn::ImportValue": "controlai-ecs:ExportsOutputFnGetAttDaemonSecretsKeyE127BBBFArnA2F7AC25"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/SecretsKmsKeyArnParam/Resource"
+   }
+  },
+  "DaemonLogGroupParamE61C8F47": {
+   "Type": "AWS::SSM::Parameter",
+   "Properties": {
+    "Name": "/controlai/infra/DAEMON_LOG_GROUP",
+    "Type": "String",
+    "Value": {
+     "Fn::ImportValue": "controlai-ecs:ExportsOutputRefDaemonLogGroupBA9D5642EFFC9A0D"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/DaemonLogGroupParam/Resource"
+   }
+  },
+  "CloudMapNamespaceIdParam22147644": {
+   "Type": "AWS::SSM::Parameter",
+   "Properties": {
+    "Name": "/controlai/infra/CLOUD_MAP_NAMESPACE_ID",
+    "Type": "String",
+    "Value": {
+     "Fn::GetAtt": [
+      "DaemonsNamespaceD4AB3E74",
+      "Id"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/CloudMapNamespaceIdParam/Resource"
+   }
+  },
+  "CloudMapServiceIdParam5D2AE119": {
+   "Type": "AWS::SSM::Parameter",
+   "Properties": {
+    "Name": "/controlai/infra/CLOUD_MAP_SERVICE_ID",
+    "Type": "String",
+    "Value": {
+     "Fn::GetAtt": [
+      "DaemonCloudMapServiceBCEE2842",
+      "Id"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/CloudMapServiceIdParam/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/32RUWsCMQzHP4vvtZMO2bOb2xjIEM/3EXvxiPbao+mdSOl3H9dTOZnsKf/88k9IWiXV/EXOJnDiqS6PU0M7GYsA+ijgxD8RDXAgbRyUOzBgNdmqUzIumsaQhkDOrhyUr7mGXrzt7/OxjzigvXiuelTfgq8wfHrXNr1llCaBWslYoG49hfPN8j94rzwy/8FfNvMkGH1HGkti7Tr0ZxnXnjoIuLT8DTVyAxr79ke4GJqH6Vn2S7KMH+ArCLgFPi5xT5b604Z77omzAciiH7FL76PZBLWMG2cyzXHtDOlz3i+rJIyrWMaVq27vcdVJeNcGnD/LuNigdr7MY7IqMCTBXPff7slWa/BQYxj+6ZaklIR1JcoDP3VKSaXkbHJgoqlvbaAa5WaIv+lrIGpRAgAA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ingress/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "ExportsOutputFnGetAttDaemonAlb8469D036LoadBalancerFullName010E1CBA": {
+   "Value": {
+    "Fn::GetAtt": [
+     "DaemonAlb8469D036",
+     "LoadBalancerFullName"
+    ]
+   },
+   "Export": {
+    "Name": "controlai-ingress:ExportsOutputFnGetAttDaemonAlb8469D036LoadBalancerFullName010E1CBA"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

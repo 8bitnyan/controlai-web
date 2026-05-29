@@ -11,6 +11,7 @@ import { streamRouter } from './routers/stream';
 import { telemetryRouter } from './routers/telemetry';
 import { dashboardRouter } from './routers/dashboard';
 import { gatewayRouter } from './routers/gateway';
+import { deviceRouter } from './routers/device';
 
 export const appRouter = router({
   org: orgRouter,
@@ -25,6 +26,7 @@ export const appRouter = router({
   telemetry: telemetryRouter,
   dashboard: dashboardRouter,
   gateway: gatewayRouter,
+  device: deviceRouter,
 });
 
 export type AppRouter = typeof appRouter;

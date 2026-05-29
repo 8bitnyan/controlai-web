@@ -1,5 +1,5 @@
 import { encode } from 'cbor-x';
-import type { GatewayDTO, SensorConfig } from '@controlai-web/shared-types';
+import type { GatewayDTO, SensorConfig } from './types.js';
 
 // Firmware version constant (u32)
 const FIRMWARE_VERSION = 1;

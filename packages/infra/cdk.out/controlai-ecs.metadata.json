@@ -1,0 +1,440 @@
+{
+  "/controlai-ecs": [
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:18:18)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-ecs/SsmParameterValue:--aws--service--ecs--optimized-ami--amazon-linux-2--recommended--image_id:C96584B6-F00A-464E-AD19-53AFF4B05118.Parameter": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "SsmParameterValueawsserviceecsoptimizedamiamazonlinux2recommendedimageidC96584B6F00A464EAD1953AFF4B05118Parameter"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new AutoScalingGroup2 in .pnpm...",
+        "new EcsStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/ecs-stack.ts:32:17)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:18:18)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)"
+      ]
+    }
+  ],
+  "/controlai-ecs/BootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)"
+      ]
+    }
+  ],
+  "/controlai-ecs/CheckBootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CheckBootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)"
+      ]
+    }
+  ],
+  "/controlai-ecs/DaemonCluster/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonCluster70162C99"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Cluster2 in .pnpm...",
+        "new EcsStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/ecs-stack.ts:27:20)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:18:18)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-ecs/DaemonCluster/DaemonCluster": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonCluster220E1DCD"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/controlai-ecs/DaemonAsg/InstanceProfile": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonAsgInstanceProfile3AABCB4E"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new AutoScalingGroup2 in .pnpm...",
+        "new EcsStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/ecs-stack.ts:32:17)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:18:18)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-ecs/DaemonAsg/LaunchConfig": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonAsgLaunchConfigA066814B"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new AutoScalingGroup2 in .pnpm...",
+        "new EcsStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/ecs-stack.ts:32:17)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:18:18)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-ecs/DaemonAsg/ASG": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonAsgASG0649C42E"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new AutoScalingGroup2 in .pnpm...",
+        "new EcsStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/ecs-stack.ts:32:17)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:18:18)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-ecs/DaemonAsgCapacityProvider/DaemonAsgCapacityProvider": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonAsgCapacityProvider4D5A6771"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new AsgCapacityProvider2 in .pnpm...",
+        "new EcsStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/ecs-stack.ts:41:30)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:18:18)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-ecs/DaemonTaskRole/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonTaskRole57363653"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Role2 in .pnpm...",
+        "new EcsStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/ecs-stack.ts:46:21)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:18:18)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-ecs/DaemonSecretsKey/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonSecretsKeyE127BBBF"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Key2 in .pnpm...",
+        "new EcsStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/ecs-stack.ts:51:19)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:18:18)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-ecs/DaemonExecutionRole/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonExecutionRoleE49E45D9"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Role2 in .pnpm...",
+        "new EcsStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/ecs-stack.ts:56:26)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:18:18)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-ecs/DaemonRepository/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonRepositoryF5A97133"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Repository2 in .pnpm...",
+        "new EcsStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/ecs-stack.ts:79:23)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:18:18)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-ecs/DaemonLogGroup/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonLogGroupBA9D5642"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new LogGroup2 in .pnpm...",
+        "new EcsStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/ecs-stack.ts:85:21)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:18:18)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-ecs/DaemonSecurityGroup/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonSecurityGroup88E8CDCD"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new SecurityGroup2 in .pnpm...",
+        "new EcsStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/ecs-stack.ts:91:21)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:18:18)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-ecs/CDKMetadata/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CDKMetadata"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/controlai-ecs/Exports/Output{\"Ref\":\"DaemonCluster70162C99\"}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ExportsOutputRefDaemonCluster70162C99C61B0006"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/controlai-ecs/Exports/Output{\"Fn::GetAtt\":[\"DaemonSecurityGroup88E8CDCD\",\"GroupId\"]}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ExportsOutputFnGetAttDaemonSecurityGroup88E8CDCDGroupId8C867987"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/controlai-ecs/Exports/Output{\"Fn::GetAtt\":[\"DaemonTaskRole57363653\",\"Arn\"]}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ExportsOutputFnGetAttDaemonTaskRole57363653ArnEFC355B2"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/controlai-ecs/Exports/Output{\"Fn::GetAtt\":[\"DaemonExecutionRoleE49E45D9\",\"Arn\"]}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ExportsOutputFnGetAttDaemonExecutionRoleE49E45D9Arn67F5D151"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/controlai-ecs/Exports/Output{\"Fn::GetAtt\":[\"DaemonSecretsKeyE127BBBF\",\"Arn\"]}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ExportsOutputFnGetAttDaemonSecretsKeyE127BBBFArnA2F7AC25"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/controlai-ecs/Exports/Output{\"Ref\":\"DaemonLogGroupBA9D5642\"}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ExportsOutputRefDaemonLogGroupBA9D5642EFFC9A0D"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/controlai-ecs/Exports/Output{\"Fn::GetAtt\":[\"DaemonCluster70162C99\",\"Arn\"]}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ExportsOutputFnGetAttDaemonCluster70162C99Arn0AAA4084"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/controlai-ecs/DaemonAsg/InstanceSecurityGroup/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonAsgInstanceSecurityGroup6D81221F"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new AutoScalingGroup2 in .pnpm...",
+        "new EcsStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/ecs-stack.ts:32:17)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:18:18)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/controlai-ecs/DaemonAsg/InstanceRole/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonAsgInstanceRoleCE0D434A"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new AutoScalingGroup2 in .pnpm...",
+        "new EcsStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/ecs-stack.ts:32:17)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:18:18)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-ecs/DaemonSecretsKey/Alias/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonSecretsKeyAliasCA85E257"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Key2 in .pnpm...",
+        "new EcsStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/ecs-stack.ts:51:19)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:18:18)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-ecs/DaemonExecutionRole/DefaultPolicy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonExecutionRoleDefaultPolicy3831F171"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new EcsStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/ecs-stack.ts:65:24)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:18:18)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)"
+      ]
+    }
+  ],
+  "/controlai-ecs/DaemonAsg/InstanceRole/DefaultPolicy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonAsgInstanceRoleDefaultPolicy9BC7E9BC"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "....pnpm...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ]
+}

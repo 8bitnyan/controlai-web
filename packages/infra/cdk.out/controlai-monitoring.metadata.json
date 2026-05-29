@@ -1,0 +1,146 @@
+{
+  "/controlai-monitoring": [
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:34:1)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-monitoring/BootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)"
+      ]
+    }
+  ],
+  "/controlai-monitoring/CheckBootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CheckBootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)"
+      ]
+    }
+  ],
+  "/controlai-monitoring/DaemonAlertsTopic/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonAlertsTopic8850A540"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Topic2 in .pnpm...",
+        "new MonitoringStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/monitoring-stack.ts:22:19)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:34:1)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-monitoring/ClusterHighCpuAlarm/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ClusterHighCpuAlarm83651E3A"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Alarm2 in .pnpm...",
+        "new MonitoringStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/monitoring-stack.ts:27:22)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:34:1)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-monitoring/ClusterHighMemoryAlarm/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ClusterHighMemoryAlarmBE54EDC6"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Alarm2 in .pnpm...",
+        "new MonitoringStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/monitoring-stack.ts:41:25)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:34:1)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-monitoring/Alb5xxAlarm/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "Alb5xxAlarm99BFF946"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Alarm2 in .pnpm...",
+        "new MonitoringStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/monitoring-stack.ts:55:25)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:34:1)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-monitoring/EcsDeploymentFailedRule/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "EcsDeploymentFailedRule00F5207C"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Rule2 in .pnpm...",
+        "new MonitoringStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/monitoring-stack.ts:65:5)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:34:1)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-monitoring/CDKMetadata/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CDKMetadata"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/controlai-monitoring/DaemonAlertsTopic/Policy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonAlertsTopicPolicy596D69A9"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "....pnpm...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ]
+}

@@ -5,10 +5,12 @@ import pino from 'pino';
 import { startGateway, stopGateway, gatewayStatus, simulatorEvents } from './manager.js';
 import { requireToken } from './jwt.js';
 import type { GatewayStatusEvent, GatewayOutboxEvent } from './manager.js';
+import { sitegroupSimulationRoute } from './routes/sitegroup-simulation.js';
 
 const logger = pino({ name: 'simulator-routes' });
 
 export const app = new Hono();
+app.route('/', sitegroupSimulationRoute);
 
 app.use(
   '*',

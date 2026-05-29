@@ -1,0 +1,181 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`core manifests > registers 'core-generic-broker' 1`] = `
+{
+  "category": "broker",
+  "constraints": {
+    "minIntervalMs": 100,
+  },
+  "datasheet": {
+    "certifications": [],
+  },
+  "displayName": "Generic Broker",
+  "firmwareTypeIds": [],
+  "id": "core-generic-broker",
+  "manufacturer": "ControlAI",
+  "model": "GEN-BROKER",
+  "ports": [
+    {
+      "acceptsProtocols": [
+        "mqtt",
+      ],
+      "direction": "bidir",
+      "id": "mqtt-1",
+      "maxCount": 1000,
+      "portType": "mqtt-topic",
+    },
+  ],
+  "registrationHints": {
+    "expectedChildTypeIds": [],
+  },
+  "visual": {
+    "accentColor": "#f59e0b",
+    "iconRef": "radio-tower",
+  },
+}
+`;
+
+exports[`core manifests > registers 'core-generic-gateway' 1`] = `
+{
+  "category": "gateway",
+  "constraints": {
+    "minIntervalMs": 100,
+  },
+  "datasheet": {
+    "certifications": [],
+  },
+  "displayName": "Generic Gateway",
+  "firmwareTypeIds": [],
+  "id": "core-generic-gateway",
+  "manufacturer": "ControlAI",
+  "model": "GEN-GATEWAY",
+  "ports": [
+    {
+      "acceptsProtocols": [
+        "modbus-rtu",
+        "rs485-serial-generic",
+      ],
+      "direction": "in",
+      "id": "rs485-1",
+      "maxCount": 16,
+      "portType": "rs485-bus",
+    },
+  ],
+  "registrationHints": {
+    "expectedChildTypeIds": [],
+  },
+  "visual": {
+    "accentColor": "#3b82f6",
+    "iconRef": "router",
+  },
+}
+`;
+
+exports[`core manifests > registers 'core-generic-ingest' 1`] = `
+{
+  "category": "ingest",
+  "constraints": {
+    "minIntervalMs": 100,
+  },
+  "datasheet": {
+    "certifications": [],
+  },
+  "displayName": "Generic Ingest",
+  "firmwareTypeIds": [],
+  "id": "core-generic-ingest",
+  "manufacturer": "ControlAI",
+  "model": "GEN-INGEST",
+  "ports": [],
+  "registrationHints": {
+    "expectedChildTypeIds": [],
+  },
+  "visual": {
+    "accentColor": "#8b5cf6",
+    "iconRef": "arrow-down-to-line",
+  },
+}
+`;
+
+exports[`core manifests > registers 'core-generic-monitoring' 1`] = `
+{
+  "category": "monitoring",
+  "constraints": {
+    "minIntervalMs": 100,
+  },
+  "datasheet": {
+    "certifications": [],
+  },
+  "displayName": "Generic Monitoring",
+  "firmwareTypeIds": [],
+  "id": "core-generic-monitoring",
+  "manufacturer": "ControlAI",
+  "model": "GEN-MONITOR",
+  "ports": [],
+  "registrationHints": {
+    "expectedChildTypeIds": [],
+  },
+  "visual": {
+    "accentColor": "#ef4444",
+    "iconRef": "activity",
+  },
+}
+`;
+
+exports[`core manifests > registers 'core-generic-sensor' 1`] = `
+{
+  "category": "sensor",
+  "constraints": {
+    "minIntervalMs": 100,
+  },
+  "datasheet": {
+    "certifications": [],
+  },
+  "defaultSignal": {
+    "format": "json",
+    "range": {
+      "max": 100,
+      "min": 0,
+    },
+    "rateMs": 1000,
+    "units": "value",
+  },
+  "displayName": "Generic Sensor",
+  "firmwareTypeIds": [],
+  "id": "core-generic-sensor",
+  "manufacturer": "ControlAI",
+  "model": "GEN-SENSOR",
+  "ports": [],
+  "registrationHints": {
+    "expectedChildTypeIds": [],
+  },
+  "visual": {
+    "accentColor": "#10b981",
+    "iconRef": "thermometer",
+  },
+}
+`;
+
+exports[`core manifests > registers 'core-generic-tsdb' 1`] = `
+{
+  "category": "tsdb",
+  "constraints": {
+    "minIntervalMs": 100,
+  },
+  "datasheet": {
+    "certifications": [],
+  },
+  "displayName": "Generic TSDB",
+  "firmwareTypeIds": [],
+  "id": "core-generic-tsdb",
+  "manufacturer": "ControlAI",
+  "model": "GEN-TSDB",
+  "ports": [],
+  "registrationHints": {
+    "expectedChildTypeIds": [],
+  },
+  "visual": {
+    "accentColor": "#06b6d4",
+    "iconRef": "database",
+  },
+}
+`;

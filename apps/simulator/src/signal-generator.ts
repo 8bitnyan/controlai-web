@@ -1,4 +1,4 @@
-import type { SensorConfig } from '@controlai-web/shared-types';
+import type { SensorConfig } from './types.js';
 
 /**
  * Mulberry32 — fast seeded PRNG returning floats in [0, 1).

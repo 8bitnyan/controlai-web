@@ -173,3 +173,22 @@ export type UpdateSiteInput = z.infer<typeof UpdateSiteSchema>;
 export type RegisterInstanceInput = z.infer<typeof RegisterInstanceSchema>;
 export type UpdateInstanceInput = z.infer<typeof UpdateInstanceSchema>;
 export type ListAuditInput = z.infer<typeof ListAuditSchema>;
+
+export const ProvisionInstanceSchema = z.object({
+  orgId: z.string().cuid(),
+  name: z.string().min(1).max(128),
+  env: z.enum(['prod', 'staging', 'dev']),
+});
+export type ProvisionInstanceInput = z.infer<typeof ProvisionInstanceSchema>;
+
+export const RetryProvisionSchema = z.object({
+  orgId: z.string().cuid(),
+  instanceId: z.string().cuid(),
+});
+export type RetryProvisionInput = z.infer<typeof RetryProvisionSchema>;
+
+export const DeprovisionInstanceSchema = z.object({
+  orgId: z.string().cuid(),
+  instanceId: z.string().cuid(),
+});
+export type DeprovisionInstanceInput = z.infer<typeof DeprovisionInstanceSchema>;

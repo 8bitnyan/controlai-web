@@ -1,0 +1,879 @@
+{
+ "Resources": {
+  "DaemonVpc4F414DD9": {
+   "Type": "AWS::EC2::VPC",
+   "Properties": {
+    "CidrBlock": "10.20.0.0/16",
+    "EnableDnsHostnames": true,
+    "EnableDnsSupport": true,
+    "InstanceTenancy": "default",
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "controlai-network/DaemonVpc"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/Resource"
+   }
+  },
+  "DaemonVpcpublicSubnet1Subnet92A67A03": {
+   "Type": "AWS::EC2::Subnet",
+   "Properties": {
+    "AvailabilityZone": "ap-northeast-2a",
+    "CidrBlock": "10.20.0.0/24",
+    "MapPublicIpOnLaunch": true,
+    "Tags": [
+     {
+      "Key": "aws-cdk:subnet-name",
+      "Value": "public"
+     },
+     {
+      "Key": "aws-cdk:subnet-type",
+      "Value": "Public"
+     },
+     {
+      "Key": "Name",
+      "Value": "controlai-network/DaemonVpc/publicSubnet1"
+     }
+    ],
+    "VpcId": {
+     "Ref": "DaemonVpc4F414DD9"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/publicSubnet1/Subnet"
+   }
+  },
+  "DaemonVpcpublicSubnet1RouteTableE5EADDB1": {
+   "Type": "AWS::EC2::RouteTable",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "controlai-network/DaemonVpc/publicSubnet1"
+     }
+    ],
+    "VpcId": {
+     "Ref": "DaemonVpc4F414DD9"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/publicSubnet1/RouteTable"
+   }
+  },
+  "DaemonVpcpublicSubnet1RouteTableAssociation5A763C08": {
+   "Type": "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "DaemonVpcpublicSubnet1RouteTableE5EADDB1"
+    },
+    "SubnetId": {
+     "Ref": "DaemonVpcpublicSubnet1Subnet92A67A03"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/publicSubnet1/RouteTableAssociation"
+   }
+  },
+  "DaemonVpcpublicSubnet1DefaultRouteF80979F2": {
+   "Type": "AWS::EC2::Route",
+   "Properties": {
+    "DestinationCidrBlock": "0.0.0.0/0",
+    "GatewayId": {
+     "Ref": "DaemonVpcIGW917506FB"
+    },
+    "RouteTableId": {
+     "Ref": "DaemonVpcpublicSubnet1RouteTableE5EADDB1"
+    }
+   },
+   "DependsOn": [
+    "DaemonVpcVPCGWE8795AC5"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/publicSubnet1/DefaultRoute"
+   }
+  },
+  "DaemonVpcpublicSubnet1EIPDC1808E1": {
+   "Type": "AWS::EC2::EIP",
+   "Properties": {
+    "Domain": "vpc",
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "controlai-network/DaemonVpc/publicSubnet1"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/publicSubnet1/EIP"
+   }
+  },
+  "DaemonVpcpublicSubnet1NATGatewayFC8A48E8": {
+   "Type": "AWS::EC2::NatGateway",
+   "Properties": {
+    "AllocationId": {
+     "Fn::GetAtt": [
+      "DaemonVpcpublicSubnet1EIPDC1808E1",
+      "AllocationId"
+     ]
+    },
+    "SubnetId": {
+     "Ref": "DaemonVpcpublicSubnet1Subnet92A67A03"
+    },
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "controlai-network/DaemonVpc/publicSubnet1"
+     }
+    ]
+   },
+   "DependsOn": [
+    "DaemonVpcpublicSubnet1DefaultRouteF80979F2",
+    "DaemonVpcpublicSubnet1RouteTableAssociation5A763C08"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/publicSubnet1/NATGateway"
+   }
+  },
+  "DaemonVpcpublicSubnet2Subnet77EC010E": {
+   "Type": "AWS::EC2::Subnet",
+   "Properties": {
+    "AvailabilityZone": "ap-northeast-2b",
+    "CidrBlock": "10.20.1.0/24",
+    "MapPublicIpOnLaunch": true,
+    "Tags": [
+     {
+      "Key": "aws-cdk:subnet-name",
+      "Value": "public"
+     },
+     {
+      "Key": "aws-cdk:subnet-type",
+      "Value": "Public"
+     },
+     {
+      "Key": "Name",
+      "Value": "controlai-network/DaemonVpc/publicSubnet2"
+     }
+    ],
+    "VpcId": {
+     "Ref": "DaemonVpc4F414DD9"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/publicSubnet2/Subnet"
+   }
+  },
+  "DaemonVpcpublicSubnet2RouteTable6DC2DDC2": {
+   "Type": "AWS::EC2::RouteTable",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "controlai-network/DaemonVpc/publicSubnet2"
+     }
+    ],
+    "VpcId": {
+     "Ref": "DaemonVpc4F414DD9"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/publicSubnet2/RouteTable"
+   }
+  },
+  "DaemonVpcpublicSubnet2RouteTableAssociation4E6214B6": {
+   "Type": "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "DaemonVpcpublicSubnet2RouteTable6DC2DDC2"
+    },
+    "SubnetId": {
+     "Ref": "DaemonVpcpublicSubnet2Subnet77EC010E"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/publicSubnet2/RouteTableAssociation"
+   }
+  },
+  "DaemonVpcpublicSubnet2DefaultRoute25800AE1": {
+   "Type": "AWS::EC2::Route",
+   "Properties": {
+    "DestinationCidrBlock": "0.0.0.0/0",
+    "GatewayId": {
+     "Ref": "DaemonVpcIGW917506FB"
+    },
+    "RouteTableId": {
+     "Ref": "DaemonVpcpublicSubnet2RouteTable6DC2DDC2"
+    }
+   },
+   "DependsOn": [
+    "DaemonVpcVPCGWE8795AC5"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/publicSubnet2/DefaultRoute"
+   }
+  },
+  "DaemonVpcprivateSubnet1SubnetAC6BE40B": {
+   "Type": "AWS::EC2::Subnet",
+   "Properties": {
+    "AvailabilityZone": "ap-northeast-2a",
+    "CidrBlock": "10.20.2.0/24",
+    "MapPublicIpOnLaunch": false,
+    "Tags": [
+     {
+      "Key": "aws-cdk:subnet-name",
+      "Value": "private"
+     },
+     {
+      "Key": "aws-cdk:subnet-type",
+      "Value": "Private"
+     },
+     {
+      "Key": "Name",
+      "Value": "controlai-network/DaemonVpc/privateSubnet1"
+     }
+    ],
+    "VpcId": {
+     "Ref": "DaemonVpc4F414DD9"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/privateSubnet1/Subnet"
+   }
+  },
+  "DaemonVpcprivateSubnet1RouteTableB984A166": {
+   "Type": "AWS::EC2::RouteTable",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "controlai-network/DaemonVpc/privateSubnet1"
+     }
+    ],
+    "VpcId": {
+     "Ref": "DaemonVpc4F414DD9"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/privateSubnet1/RouteTable"
+   }
+  },
+  "DaemonVpcprivateSubnet1RouteTableAssociation4EE67E88": {
+   "Type": "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "DaemonVpcprivateSubnet1RouteTableB984A166"
+    },
+    "SubnetId": {
+     "Ref": "DaemonVpcprivateSubnet1SubnetAC6BE40B"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/privateSubnet1/RouteTableAssociation"
+   }
+  },
+  "DaemonVpcprivateSubnet1DefaultRoute0368CFB0": {
+   "Type": "AWS::EC2::Route",
+   "Properties": {
+    "DestinationCidrBlock": "0.0.0.0/0",
+    "NatGatewayId": {
+     "Ref": "DaemonVpcpublicSubnet1NATGatewayFC8A48E8"
+    },
+    "RouteTableId": {
+     "Ref": "DaemonVpcprivateSubnet1RouteTableB984A166"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/privateSubnet1/DefaultRoute"
+   }
+  },
+  "DaemonVpcprivateSubnet2Subnet15E5F7C4": {
+   "Type": "AWS::EC2::Subnet",
+   "Properties": {
+    "AvailabilityZone": "ap-northeast-2b",
+    "CidrBlock": "10.20.3.0/24",
+    "MapPublicIpOnLaunch": false,
+    "Tags": [
+     {
+      "Key": "aws-cdk:subnet-name",
+      "Value": "private"
+     },
+     {
+      "Key": "aws-cdk:subnet-type",
+      "Value": "Private"
+     },
+     {
+      "Key": "Name",
+      "Value": "controlai-network/DaemonVpc/privateSubnet2"
+     }
+    ],
+    "VpcId": {
+     "Ref": "DaemonVpc4F414DD9"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/privateSubnet2/Subnet"
+   }
+  },
+  "DaemonVpcprivateSubnet2RouteTable09A6C85D": {
+   "Type": "AWS::EC2::RouteTable",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "controlai-network/DaemonVpc/privateSubnet2"
+     }
+    ],
+    "VpcId": {
+     "Ref": "DaemonVpc4F414DD9"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/privateSubnet2/RouteTable"
+   }
+  },
+  "DaemonVpcprivateSubnet2RouteTableAssociation75C438AB": {
+   "Type": "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties": {
+    "RouteTableId": {
+     "Ref": "DaemonVpcprivateSubnet2RouteTable09A6C85D"
+    },
+    "SubnetId": {
+     "Ref": "DaemonVpcprivateSubnet2Subnet15E5F7C4"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/privateSubnet2/RouteTableAssociation"
+   }
+  },
+  "DaemonVpcprivateSubnet2DefaultRouteC95BD864": {
+   "Type": "AWS::EC2::Route",
+   "Properties": {
+    "DestinationCidrBlock": "0.0.0.0/0",
+    "NatGatewayId": {
+     "Ref": "DaemonVpcpublicSubnet1NATGatewayFC8A48E8"
+    },
+    "RouteTableId": {
+     "Ref": "DaemonVpcprivateSubnet2RouteTable09A6C85D"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/privateSubnet2/DefaultRoute"
+   }
+  },
+  "DaemonVpcIGW917506FB": {
+   "Type": "AWS::EC2::InternetGateway",
+   "Properties": {
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "controlai-network/DaemonVpc"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/IGW"
+   }
+  },
+  "DaemonVpcVPCGWE8795AC5": {
+   "Type": "AWS::EC2::VPCGatewayAttachment",
+   "Properties": {
+    "InternetGatewayId": {
+     "Ref": "DaemonVpcIGW917506FB"
+    },
+    "VpcId": {
+     "Ref": "DaemonVpc4F414DD9"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/VPCGW"
+   }
+  },
+  "DaemonVpcS3Endpoint0C4C182D": {
+   "Type": "AWS::EC2::VPCEndpoint",
+   "Properties": {
+    "RouteTableIds": [
+     {
+      "Ref": "DaemonVpcprivateSubnet1RouteTableB984A166"
+     },
+     {
+      "Ref": "DaemonVpcprivateSubnet2RouteTable09A6C85D"
+     },
+     {
+      "Ref": "DaemonVpcpublicSubnet1RouteTableE5EADDB1"
+     },
+     {
+      "Ref": "DaemonVpcpublicSubnet2RouteTable6DC2DDC2"
+     }
+    ],
+    "ServiceName": {
+     "Fn::Join": [
+      "",
+      [
+       "com.amazonaws.",
+       {
+        "Ref": "AWS::Region"
+       },
+       ".s3"
+      ]
+     ]
+    },
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "controlai-network/DaemonVpc"
+     }
+    ],
+    "VpcEndpointType": "Gateway",
+    "VpcId": {
+     "Ref": "DaemonVpc4F414DD9"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/S3Endpoint/Resource"
+   }
+  },
+  "DaemonVpcEcrApiEndpointSecurityGroupA62608B6": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "controlai-network/DaemonVpc/EcrApiEndpoint/SecurityGroup",
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow all outbound traffic by default",
+      "IpProtocol": "-1"
+     }
+    ],
+    "SecurityGroupIngress": [
+     {
+      "CidrIp": {
+       "Fn::GetAtt": [
+        "DaemonVpc4F414DD9",
+        "CidrBlock"
+       ]
+      },
+      "Description": {
+       "Fn::Join": [
+        "",
+        [
+         "from ",
+         {
+          "Fn::GetAtt": [
+           "DaemonVpc4F414DD9",
+           "CidrBlock"
+          ]
+         },
+         ":443"
+        ]
+       ]
+      },
+      "FromPort": 443,
+      "IpProtocol": "tcp",
+      "ToPort": 443
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "controlai-network/DaemonVpc"
+     }
+    ],
+    "VpcId": {
+     "Ref": "DaemonVpc4F414DD9"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/EcrApiEndpoint/SecurityGroup/Resource"
+   }
+  },
+  "DaemonVpcEcrApiEndpoint9767E7B8": {
+   "Type": "AWS::EC2::VPCEndpoint",
+   "Properties": {
+    "PrivateDnsEnabled": true,
+    "SecurityGroupIds": [
+     {
+      "Fn::GetAtt": [
+       "DaemonVpcEcrApiEndpointSecurityGroupA62608B6",
+       "GroupId"
+      ]
+     }
+    ],
+    "ServiceName": "com.amazonaws.ap-northeast-2.ecr.api",
+    "SubnetIds": [
+     {
+      "Ref": "DaemonVpcprivateSubnet1SubnetAC6BE40B"
+     },
+     {
+      "Ref": "DaemonVpcprivateSubnet2Subnet15E5F7C4"
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "controlai-network/DaemonVpc"
+     }
+    ],
+    "VpcEndpointType": "Interface",
+    "VpcId": {
+     "Ref": "DaemonVpc4F414DD9"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/EcrApiEndpoint/Resource"
+   }
+  },
+  "DaemonVpcEcrDockerEndpointSecurityGroupD5A800A3": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "controlai-network/DaemonVpc/EcrDockerEndpoint/SecurityGroup",
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow all outbound traffic by default",
+      "IpProtocol": "-1"
+     }
+    ],
+    "SecurityGroupIngress": [
+     {
+      "CidrIp": {
+       "Fn::GetAtt": [
+        "DaemonVpc4F414DD9",
+        "CidrBlock"
+       ]
+      },
+      "Description": {
+       "Fn::Join": [
+        "",
+        [
+         "from ",
+         {
+          "Fn::GetAtt": [
+           "DaemonVpc4F414DD9",
+           "CidrBlock"
+          ]
+         },
+         ":443"
+        ]
+       ]
+      },
+      "FromPort": 443,
+      "IpProtocol": "tcp",
+      "ToPort": 443
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "controlai-network/DaemonVpc"
+     }
+    ],
+    "VpcId": {
+     "Ref": "DaemonVpc4F414DD9"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/EcrDockerEndpoint/SecurityGroup/Resource"
+   }
+  },
+  "DaemonVpcEcrDockerEndpoint1EE8B58A": {
+   "Type": "AWS::EC2::VPCEndpoint",
+   "Properties": {
+    "PrivateDnsEnabled": true,
+    "SecurityGroupIds": [
+     {
+      "Fn::GetAtt": [
+       "DaemonVpcEcrDockerEndpointSecurityGroupD5A800A3",
+       "GroupId"
+      ]
+     }
+    ],
+    "ServiceName": "com.amazonaws.ap-northeast-2.ecr.dkr",
+    "SubnetIds": [
+     {
+      "Ref": "DaemonVpcprivateSubnet1SubnetAC6BE40B"
+     },
+     {
+      "Ref": "DaemonVpcprivateSubnet2Subnet15E5F7C4"
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "controlai-network/DaemonVpc"
+     }
+    ],
+    "VpcEndpointType": "Interface",
+    "VpcId": {
+     "Ref": "DaemonVpc4F414DD9"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/EcrDockerEndpoint/Resource"
+   }
+  },
+  "DaemonVpcSecretsManagerEndpointSecurityGroup500A363C": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "controlai-network/DaemonVpc/SecretsManagerEndpoint/SecurityGroup",
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow all outbound traffic by default",
+      "IpProtocol": "-1"
+     }
+    ],
+    "SecurityGroupIngress": [
+     {
+      "CidrIp": {
+       "Fn::GetAtt": [
+        "DaemonVpc4F414DD9",
+        "CidrBlock"
+       ]
+      },
+      "Description": {
+       "Fn::Join": [
+        "",
+        [
+         "from ",
+         {
+          "Fn::GetAtt": [
+           "DaemonVpc4F414DD9",
+           "CidrBlock"
+          ]
+         },
+         ":443"
+        ]
+       ]
+      },
+      "FromPort": 443,
+      "IpProtocol": "tcp",
+      "ToPort": 443
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "controlai-network/DaemonVpc"
+     }
+    ],
+    "VpcId": {
+     "Ref": "DaemonVpc4F414DD9"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/SecretsManagerEndpoint/SecurityGroup/Resource"
+   }
+  },
+  "DaemonVpcSecretsManagerEndpointFAF910A5": {
+   "Type": "AWS::EC2::VPCEndpoint",
+   "Properties": {
+    "PrivateDnsEnabled": true,
+    "SecurityGroupIds": [
+     {
+      "Fn::GetAtt": [
+       "DaemonVpcSecretsManagerEndpointSecurityGroup500A363C",
+       "GroupId"
+      ]
+     }
+    ],
+    "ServiceName": "com.amazonaws.ap-northeast-2.secretsmanager",
+    "SubnetIds": [
+     {
+      "Ref": "DaemonVpcprivateSubnet1SubnetAC6BE40B"
+     },
+     {
+      "Ref": "DaemonVpcprivateSubnet2Subnet15E5F7C4"
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "controlai-network/DaemonVpc"
+     }
+    ],
+    "VpcEndpointType": "Interface",
+    "VpcId": {
+     "Ref": "DaemonVpc4F414DD9"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/SecretsManagerEndpoint/Resource"
+   }
+  },
+  "DaemonVpcCloudWatchLogsEndpointSecurityGroupEF040E88": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "controlai-network/DaemonVpc/CloudWatchLogsEndpoint/SecurityGroup",
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow all outbound traffic by default",
+      "IpProtocol": "-1"
+     }
+    ],
+    "SecurityGroupIngress": [
+     {
+      "CidrIp": {
+       "Fn::GetAtt": [
+        "DaemonVpc4F414DD9",
+        "CidrBlock"
+       ]
+      },
+      "Description": {
+       "Fn::Join": [
+        "",
+        [
+         "from ",
+         {
+          "Fn::GetAtt": [
+           "DaemonVpc4F414DD9",
+           "CidrBlock"
+          ]
+         },
+         ":443"
+        ]
+       ]
+      },
+      "FromPort": 443,
+      "IpProtocol": "tcp",
+      "ToPort": 443
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "controlai-network/DaemonVpc"
+     }
+    ],
+    "VpcId": {
+     "Ref": "DaemonVpc4F414DD9"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/CloudWatchLogsEndpoint/SecurityGroup/Resource"
+   }
+  },
+  "DaemonVpcCloudWatchLogsEndpointC441929F": {
+   "Type": "AWS::EC2::VPCEndpoint",
+   "Properties": {
+    "PrivateDnsEnabled": true,
+    "SecurityGroupIds": [
+     {
+      "Fn::GetAtt": [
+       "DaemonVpcCloudWatchLogsEndpointSecurityGroupEF040E88",
+       "GroupId"
+      ]
+     }
+    ],
+    "ServiceName": "com.amazonaws.ap-northeast-2.logs",
+    "SubnetIds": [
+     {
+      "Ref": "DaemonVpcprivateSubnet1SubnetAC6BE40B"
+     },
+     {
+      "Ref": "DaemonVpcprivateSubnet2Subnet15E5F7C4"
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "controlai-network/DaemonVpc"
+     }
+    ],
+    "VpcEndpointType": "Interface",
+    "VpcId": {
+     "Ref": "DaemonVpc4F414DD9"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/DaemonVpc/CloudWatchLogsEndpoint/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/02OwYrCQBBEv8X7ZFYGZM8iIl4kJJLr0um02Bp7wkyPQcR/X6Ih8VRVj6IoZ93q1y4X0McMm2vWcm2fpQJeDfTxj9DZZ9Wh2ZykyjcmT3XLWKZaSAc2u8InpSPULc18ZusYPTIoe5nKg9nu80EOoDtQ6uFh8sB3UJqH96IUhKbC58mY1qqA5xuJmpFUHW6l6TyLjtUpvpdOgPTdKQlTYH3sgk/d+/o3eJmCok8B6WXEN2Qv8efunHXOLheXyJyFJMo3ssVH/wHikDxbUAEAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-network/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "ExportsOutputRefDaemonVpc4F414DD9BCA9D7BA": {
+   "Value": {
+    "Ref": "DaemonVpc4F414DD9"
+   },
+   "Export": {
+    "Name": "controlai-network:ExportsOutputRefDaemonVpc4F414DD9BCA9D7BA"
+   }
+  },
+  "ExportsOutputRefDaemonVpcprivateSubnet1SubnetAC6BE40B1F39A9C7": {
+   "Value": {
+    "Ref": "DaemonVpcprivateSubnet1SubnetAC6BE40B"
+   },
+   "Export": {
+    "Name": "controlai-network:ExportsOutputRefDaemonVpcprivateSubnet1SubnetAC6BE40B1F39A9C7"
+   }
+  },
+  "ExportsOutputRefDaemonVpcprivateSubnet2Subnet15E5F7C42737D7BF": {
+   "Value": {
+    "Ref": "DaemonVpcprivateSubnet2Subnet15E5F7C4"
+   },
+   "Export": {
+    "Name": "controlai-network:ExportsOutputRefDaemonVpcprivateSubnet2Subnet15E5F7C42737D7BF"
+   }
+  },
+  "ExportsOutputRefDaemonVpcpublicSubnet1Subnet92A67A030C76941C": {
+   "Value": {
+    "Ref": "DaemonVpcpublicSubnet1Subnet92A67A03"
+   },
+   "Export": {
+    "Name": "controlai-network:ExportsOutputRefDaemonVpcpublicSubnet1Subnet92A67A030C76941C"
+   }
+  },
+  "ExportsOutputRefDaemonVpcpublicSubnet2Subnet77EC010EBB8A6C28": {
+   "Value": {
+    "Ref": "DaemonVpcpublicSubnet2Subnet77EC010E"
+   },
+   "Export": {
+    "Name": "controlai-network:ExportsOutputRefDaemonVpcpublicSubnet2Subnet77EC010EBB8A6C28"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

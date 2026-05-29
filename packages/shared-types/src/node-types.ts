@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 // ─── Node type literals ────────────────────────────────────────────────────────
 
+/** @deprecated Use @controlai-web/shared-types device-types registry instead (getDeviceType, defaultNodeData(deviceTypeId)). */
 export const NODE_TYPES = [
   'sensor',
   'gateway',
@@ -11,6 +12,7 @@ export const NODE_TYPES = [
   'monitoring',
 ] as const;
 
+/** @deprecated Use @controlai-web/shared-types device-types registry instead (getDeviceType, defaultNodeData(deviceTypeId)). */
 export type NodeType = (typeof NODE_TYPES)[number];
 
 // ─── Per-node data schemas ─────────────────────────────────────────────────────
@@ -89,7 +91,15 @@ export type NodeStatus = 'UNKNOWN' | 'HEALTHY' | 'DEGRADED' | 'UNREACHABLE';
 
 // ─── Default node data factory ─────────────────────────────────────────────────
 
+let __warned = false;
+
+/** @deprecated Use @controlai-web/shared-types device-types registry instead (getDeviceType, defaultNodeData(deviceTypeId)). */
 export function defaultNodeData(type: NodeType): NodeData {
+  if (!__warned && typeof process !== 'undefined' && process.env.NODE_ENV !== 'production') {
+    console.warn('[shared-types] defaultNodeData(NodeType) is deprecated; use defaultNodeData(deviceTypeId) from device-types.');
+    __warned = true;
+  }
+
   switch (type) {
     case 'sensor':
       return SensorDataSchema.parse({ type });

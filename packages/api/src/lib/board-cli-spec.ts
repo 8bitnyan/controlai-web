@@ -37,7 +37,8 @@ export type BoardCliCommand =
       openCommand: string;
       closeCommand: string;
     }
-  | { kind: 'plain'; itemId: 'reboot'; command: 'reboot' };
+  | { kind: 'plain'; itemId: 'reboot'; command: 'reboot' }
+  | { kind: 'plain'; itemId: 'status'; command: 'status' };
 
 export const BOARD_PROVISION_SEQUENCE: BoardCliCommand[] = [
   { kind: 'single', itemId: 'group_id', commandWord: 'group_id' },
@@ -52,6 +53,12 @@ export const BOARD_PROVISION_SEQUENCE: BoardCliCommand[] = [
   { kind: 'chunked', itemId: 'certkey', openCommand: 'certkey set', closeCommand: 'certkey end' },
   { kind: 'plain', itemId: 'reboot', command: 'reboot' },
 ];
+
+export const BOARD_REGISTER_SEQUENCE: BoardCliCommand[] = [
+  { kind: 'plain', itemId: 'status', command: 'status' },
+];
+
+export const BOARD_REGISTER_STATUS_TIMEOUT_MS = 10000;
 
 export function buildSingleCommandLine(
   cmd: Extract<BoardCliCommand, { kind: 'single' }>,

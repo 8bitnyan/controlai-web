@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "check:deprecated": "rg --no-messages -n 'NODE_TYPES|CONNECTION_MATRIX' apps/web/components apps/web/stores apps/web/app apps/web/lib | grep -v 'connection-rules.ts' || true",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test"
@@ -15,6 +16,7 @@
     "@controlai-web/api": "workspace:*",
     "@controlai-web/db": "workspace:*",
     "@controlai-web/shared-types": "workspace:*",
+    "@aws-sdk/client-ecs": "^3",
     "@radix-ui/react-avatar": "^1.1.2",
     "@radix-ui/react-dialog": "^1.1.4",
     "@radix-ui/react-dropdown-menu": "^2.1.4",
@@ -45,6 +47,8 @@
     "zustand": "^5.0.13"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
     "@playwright/test": "^1.49.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
@@ -53,6 +57,7 @@
     "@types/w3c-web-serial": "^1.0.8",
     "@vitest/coverage-v8": "^2.1.0",
     "autoprefixer": "^10.4.20",
+    "jsdom": "^25.0.1",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.6.0",

@@ -6,5 +6,9 @@ export { router, publicProcedure, protectedProcedure, orgProcedure, ownerAdminPr
 export { getSetupState } from './lib/setup-state';
 export { encryptToken, decryptToken } from './lib/crypto';
 export { writeAudit } from './lib/audit-writer';
+export { getProvisioner } from './lib/instance-provisioner';
 export { checkDaemonHealth, DaemonError } from './lib/daemon-client';
 export type { DaemonHealthResponse } from './lib/daemon-client';
+export { enforceGatewayDeviceKeyStartupGate } from './lib/startup-gate';
+export { startDeviceCanvasReconcileJob } from './jobs';
+export { startRegistrationProposalExpireJob } from './jobs';

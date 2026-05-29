@@ -60,7 +60,7 @@ export function DashboardGrid({
       void saveMutation.mutateAsync({
         orgId,
         siteGroupId,
-        layout: newItems as unknown as unknown[],
+        layout: newItems.map((item) => item.widget),
       });
     },
     [orgId, siteGroupId, saveMutation],

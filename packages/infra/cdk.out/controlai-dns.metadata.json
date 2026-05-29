@@ -1,0 +1,115 @@
+{
+  "/controlai-dns": [
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:23:18)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-dns/BootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)"
+      ]
+    }
+  ],
+  "/controlai-dns/CheckBootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CheckBootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)"
+      ]
+    }
+  ],
+  "/controlai-dns/DaemonsHostedZone/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonsHostedZone281E15A6"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new HostedZone2 in .pnpm...",
+        "new DnsStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/dns-stack.ts:13:23)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:23:18)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-dns/DaemonsWildcardCertificate/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonsWildcardCertificateB0AFA43D"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Certificate2 in .pnpm...",
+        "new DnsStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/dns-stack.ts:17:17)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:23:18)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-dns/CDKMetadata/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CDKMetadata"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/controlai-dns/Exports/Output{\"Ref\":\"DaemonsWildcardCertificateB0AFA43D\"}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ExportsOutputRefDaemonsWildcardCertificateB0AFA43DCEDD0231"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/controlai-dns/Exports/Output{\"Ref\":\"DaemonsHostedZone281E15A6\"}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ExportsOutputRefDaemonsHostedZone281E15A654E4696B"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals..."
+      ]
+    }
+  ]
+}

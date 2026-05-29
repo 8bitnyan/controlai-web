@@ -9,7 +9,16 @@ export const OP_TYPES = [
   'issueCert',
   'updateIngest',
   'updateTsdb',
+  'bindDeviceSite',
+  'bindDeviceSiteDescendants',
+  'configureDriver',
+  'migrateTopicSchema',
 ] as const;
+
+export const BrokerDriverIdSchema = z.string().regex(/^[a-z][a-z0-9-]*$/, 'broker-driver id must be lowercase dash-separated');
+export const TopicSchemaModeSchema = z.enum(['legacy', 'dual', 'new']);
+export type BrokerDriverId = z.infer<typeof BrokerDriverIdSchema>;
+export type TopicSchemaMode = z.infer<typeof TopicSchemaModeSchema>;
 
 export type OpType = (typeof OP_TYPES)[number];
 

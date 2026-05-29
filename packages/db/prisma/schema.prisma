@@ -13,18 +13,18 @@ datasource db {
 // ─── better-auth required models ─────────────────────────────────────────────
 
 model User {
-  id            String    @id @default(cuid())
+  id            String   @id @default(cuid())
   name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false)
+  email         String   @unique
+  emailVerified Boolean  @default(false)
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  sessions    Session[]
-  accounts    Account[]
-  memberships OrganizationMember[]
-  auditLogs   AuditLog[]
+  sessions       Session[]
+  accounts       Account[]
+  memberships    OrganizationMember[]
+  auditLogs      AuditLog[]
   addedInstances ControlaiInstance[]
 }
 
@@ -139,9 +139,13 @@ model ControlaiInstance {
   id                String         @id @default(cuid())
   orgId             String
   name              String
+  env               String?
   baseURL           String
-  bearerTokenEnc    String         // AES-256-GCM encrypted; plaintext never stored
+  bearerTokenEnc    String // AES-256-GCM encrypted; plaintext never stored
   status            InstanceStatus @default(UNKNOWN)
+  provisioningStartedAt DateTime?
+  provisionerInstanceId String?
+  provisionProgress     Json?          // { stage: string, percent: number, log: Array<{ ts: string, message: string }> }
   lastSeenAt        DateTime?
   version           String?
   capacityUsedMB    Int?
@@ -156,6 +160,7 @@ model ControlaiInstance {
   projects Project[]
 
   @@index([orgId])
+  // Partial unique index (orgId, env) WHERE env IS NOT NULL is managed in raw SQL migration.
 }
 
 enum InstanceStatus {
@@ -163,6 +168,8 @@ enum InstanceStatus {
   HEALTHY
   DEGRADED
   UNREACHABLE
+  PROVISIONING
+  PROVISION_FAILED
 }
 
 // ─── Project ──────────────────────────────────────────────────────────────────
@@ -186,11 +193,12 @@ model Project {
 // ─── SiteGroup ────────────────────────────────────────────────────────────────
 
 model SiteGroup {
-  id        String   @id @default(cuid())
-  projectId String
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(cuid())
+  projectId       String
+  name            String
+  topicSchemaMode String   @default("legacy") // 'legacy' | 'dual' | 'new'
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   sites       Site[]
@@ -198,6 +206,7 @@ model SiteGroup {
   dashboard   Dashboard?
   applyRuns   ApplyRun[]
   gateways    Gateway[]
+  devices     Device[]
 
   @@index([projectId])
 }
@@ -218,11 +227,15 @@ model Site {
   mqttCert          String? // PEM client cert issued by Apply issueCert op
   mqttKey           String? // PEM private key (stored encrypted in practice)
   tlsServername     String?
+  driverId          String? @default("mqtt-driver") // broker-driver registry id
+  driverConfig      Json? // driver-specific config validated by the driver's configSchema
+  ingestModeJson    Json? // per-Site ingest mode (e.g. {tsdbDirect:true})
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   siteGroup SiteGroup @relation(fields: [siteGroupId], references: [id], onDelete: Cascade)
+  devices   Device[]
 
   @@index([siteGroupId])
   @@index([siteGroupId, canvasNodeId])
@@ -258,7 +271,7 @@ model NodeConfig {
   edges       Json      @default("[]") // @xyflow Edge[]
   isActive    Boolean   @default(false)
   appliedAt   DateTime?
-  appliedHash String?   // SHA256 of plan ops at apply time
+  appliedHash String? // SHA256 of plan ops at apply time
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -283,7 +296,7 @@ model ApplyRun {
   planHash    String
   success     Boolean
   opCount     Int
-  failedAt    Int?     // 0-based index of the first failed op, null if all succeeded
+  failedAt    Int? // 0-based index of the first failed op, null if all succeeded
   resultJson  Json     @default("{}") // full OpResult[]
   createdAt   DateTime @default(now())
 
@@ -292,33 +305,99 @@ model ApplyRun {
   @@index([siteGroupId])
 }
 
+enum DeviceRegistrationState {
+  UNREGISTERED
+  REGISTERING
+  REGISTERED
+  ORPHANED
+}
+
+enum RegistrationProposalState {
+  PROPOSED
+  COMMITTED
+  ABORTED
+  EXPIRED
+}
+
+model Device {
+  deviceKey          String                  @id @default(cuid())
+  siteGroupId        String
+  siteGroup          SiteGroup               @relation(fields: [siteGroupId], references: [id], onDelete: Cascade)
+  canvasNodeId       String
+  siteId             String?
+  site               Site?                   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  deviceTypeId       String
+  registrationState  DeviceRegistrationState @default(UNREGISTERED)
+  shadowUuid         String
+  realUuid           String?
+  parentDeviceKey    String?
+  parent             Device?                 @relation("DeviceParent", fields: [parentDeviceKey], references: [deviceKey], onDelete: SetNull)
+  children           Device[]                @relation("DeviceParent")
+  portBindings       Json?
+  config             Json                    @default("{}")
+  simulationDesired  Boolean                 @default(true)
+  registeredAt       DateTime?
+  registeredByUserId String?
+  lastSeenAt         DateTime?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  gateway            Gateway?
+  registrationProposals RegistrationProposal[] @relation("RegistrationGateway")
+
+  @@unique([siteGroupId, canvasNodeId])
+  @@index([siteGroupId, registrationState])
+  @@index([parentDeviceKey])
+  @@index([realUuid])
+}
+
 // ─── Gateway ──────────────────────────────────────────────────────────────────
 
 model Gateway {
-  id                  String    @id @default(cuid())
-  siteGroupId         String
-  siteGroup           SiteGroup @relation(fields: [siteGroupId], references: [id], onDelete: Cascade)
-  label               String
-  kind                String    // 'simulator' | 'physical'
-  mode                String    // 'cbor-modules-cloud' | 'json'
-  endpointURL         String    // e.g. "mqtts://broker.example.com:8883"
-  tlsServername       String?   // SNI ServerName override
-  brokerHost          String?   // TCP connect host override
-  brokerPort          Int?      // TCP connect port override
-  groupId             String    // modules_cloud GROUP_ID — used as CN in cert and topic segment
-  clientId            String    // MQTT client id — for cbor mode this is also EDGE_NODE_ID
-  rootCaPemEnc        String    // AES-256-GCM encrypted PEM via crypto.ts encryptToken
-  clientCertPemEnc    String
-  clientKeyPemEnc     String
-  sensors             Json      // [{id, type, min, max, walkStep, intervalMs, unit?, seed?}]
-  jsonTopicTemplate   String?   // optional, e.g. "sites/{siteId}/sensors/{sensorId}"; only when mode='json'
-  desiredState        String    @default("stopped") // 'stopped' | 'running'
-  lastStatus          String    @default("stopped") // last reported runtime status
-  lastError           String?
+  id                          String    @id @default(cuid())
+  siteGroupId                 String
+  siteGroup                   SiteGroup @relation(fields: [siteGroupId], references: [id], onDelete: Cascade)
+  label                       String
+  kind                        String // 'simulator' | 'physical'
+  mode                        String // 'cbor-modules-cloud' | 'json'
+  endpointURL                 String // e.g. "mqtts://broker.example.com:8883"
+  tlsServername               String? // SNI ServerName override
+  brokerHost                  String? // TCP connect host override
+  brokerPort                  Int? // TCP connect port override
+  groupId                     String // modules_cloud GROUP_ID — used as CN in cert and topic segment
+  clientId                    String // MQTT client id — for cbor mode this is also EDGE_NODE_ID
+  rootCaPemEnc                String // AES-256-GCM encrypted PEM via crypto.ts encryptToken
+  clientCertPemEnc            String
+  clientKeyPemEnc             String
+  sensors                     Json // [{id, type, min, max, walkStep, intervalMs, unit?, seed?}]
+  jsonTopicTemplate           String? // optional, e.g. "sites/{siteId}/sensors/{sensorId}"; only when mode='json'
+  desiredState                String    @default("stopped") // 'stopped' | 'running'
+  lastStatus                  String    @default("stopped") // last reported runtime status
+  lastError                   String?
+  deviceKey                   String?   @unique
+  device                      Device?   @relation(fields: [deviceKey], references: [deviceKey], onDelete: SetNull)
+  simulationDesired           Boolean   @default(false)
   lastProvisionedDeviceSerial String?
-  lastProvisionedAt   DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  lastProvisionedAt           DateTime?
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
 
   @@index([siteGroupId])
+}
+
+model RegistrationProposal {
+  id                    String                    @id @default(cuid())
+  gatewayDeviceKey      String
+  gateway               Device                    @relation("RegistrationGateway", fields: [gatewayDeviceKey], references: [deviceKey], onDelete: Cascade)
+  state                 RegistrationProposalState @default(PROPOSED)
+  boardReportedUuid     String                    @default("")
+  discoveredChildrenJson Json                     @default("[]")
+  matchPlanJson         Json?
+  userDecisionsJson     Json?
+  expiresAt             DateTime
+  createdAt             DateTime                  @default(now())
+  committedAt           DateTime?
+  abortedAt             DateTime?
+
+  @@index([gatewayDeviceKey, state])
+  @@index([expiresAt])
 }

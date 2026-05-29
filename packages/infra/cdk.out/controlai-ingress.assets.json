@@ -1,0 +1,21 @@
+{
+  "version": "53.0.0",
+  "files": {
+    "3ac9c36a79d3b1d4adb9c296a5fc7165e64c7c0ba3f0f2e82f12b1346990e1e4": {
+      "displayName": "controlai-ingress Template",
+      "source": {
+        "path": "controlai-ingress.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "754248136265-ap-northeast-2-433cf5ed": {
+          "bucketName": "cdk-hnb659fds-assets-754248136265-ap-northeast-2",
+          "objectKey": "3ac9c36a79d3b1d4adb9c296a5fc7165e64c7c0ba3f0f2e82f12b1346990e1e4.json",
+          "region": "ap-northeast-2",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::754248136265:role/cdk-hnb659fds-file-publishing-role-754248136265-ap-northeast-2"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

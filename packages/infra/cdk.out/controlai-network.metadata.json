@@ -1,0 +1,582 @@
+{
+  "/controlai-network": [
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:16:22)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-network/BootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)"
+      ]
+    }
+  ],
+  "/controlai-network/CheckBootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CheckBootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)"
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpc4F414DD9"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Vpc2 in .pnpm...",
+        "new NetworkStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/network-stack.ts:13:16)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:16:22)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/IGW": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcIGW917506FB"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Vpc2 in .pnpm...",
+        "new NetworkStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/network-stack.ts:13:16)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:16:22)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/VPCGW": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcVPCGWE8795AC5"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Vpc2 in .pnpm...",
+        "new NetworkStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/network-stack.ts:13:16)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:16:22)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-network/CDKMetadata/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CDKMetadata"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/controlai-network/Exports/Output{\"Ref\":\"DaemonVpc4F414DD9\"}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ExportsOutputRefDaemonVpc4F414DD9BCA9D7BA"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/controlai-network/Exports/Output{\"Ref\":\"DaemonVpcprivateSubnet1SubnetAC6BE40B\"}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ExportsOutputRefDaemonVpcprivateSubnet1SubnetAC6BE40B1F39A9C7"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/controlai-network/Exports/Output{\"Ref\":\"DaemonVpcprivateSubnet2Subnet15E5F7C4\"}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ExportsOutputRefDaemonVpcprivateSubnet2Subnet15E5F7C42737D7BF"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/controlai-network/Exports/Output{\"Ref\":\"DaemonVpcpublicSubnet1Subnet92A67A03\"}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ExportsOutputRefDaemonVpcpublicSubnet1Subnet92A67A030C76941C"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/controlai-network/Exports/Output{\"Ref\":\"DaemonVpcpublicSubnet2Subnet77EC010E\"}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ExportsOutputRefDaemonVpcpublicSubnet2Subnet77EC010EBB8A6C28"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:5)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/publicSubnet1/Subnet": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcpublicSubnet1Subnet92A67A03"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        ".../Users/8bitnyan/Documents/ThinkTank/controlai-web/node_modules/.pnpm/aws-cdk-lib@2.257.0_constructs@10.6.0/node_modules/aws-cdk-lib/aws-ec2/lib/vpc.js:1:257 in .pnpm...",
+        "Array.forEach (:)",
+        "....pnpm..."
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/publicSubnet1/RouteTable": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcpublicSubnet1RouteTableE5EADDB1"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        ".../Users/8bitnyan/Documents/ThinkTank/controlai-web/node_modules/.pnpm/aws-cdk-lib@2.257.0_constructs@10.6.0/node_modules/aws-cdk-lib/aws-ec2/lib/vpc.js:1:257 in .pnpm...",
+        "Array.forEach (:)",
+        "....pnpm..."
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/publicSubnet1/RouteTableAssociation": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcpublicSubnet1RouteTableAssociation5A763C08"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        ".../Users/8bitnyan/Documents/ThinkTank/controlai-web/node_modules/.pnpm/aws-cdk-lib@2.257.0_constructs@10.6.0/node_modules/aws-cdk-lib/aws-ec2/lib/vpc.js:1:257 in .pnpm...",
+        "Array.forEach (:)",
+        "....pnpm..."
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/publicSubnet1/DefaultRoute": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcpublicSubnet1DefaultRouteF80979F2"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        ".../Users/8bitnyan/Documents/ThinkTank/controlai-web/node_modules/.pnpm/aws-cdk-lib@2.257.0_constructs@10.6.0/node_modules/aws-cdk-lib/aws-ec2/lib/vpc.js:1:197 in .pnpm...",
+        "Array.forEach (:)",
+        "...new Vpc2 in .pnpm...",
+        "new NetworkStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/network-stack.ts:13:16)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:16:22)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/publicSubnet1/EIP": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcpublicSubnet1EIPDC1808E1"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Vpc2 in .pnpm...",
+        "new NetworkStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/network-stack.ts:13:16)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:16:22)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/publicSubnet1/NATGateway": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcpublicSubnet1NATGatewayFC8A48E8"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Vpc2 in .pnpm...",
+        "new NetworkStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/network-stack.ts:13:16)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:16:22)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/publicSubnet2/Subnet": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcpublicSubnet2Subnet77EC010E"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        ".../Users/8bitnyan/Documents/ThinkTank/controlai-web/node_modules/.pnpm/aws-cdk-lib@2.257.0_constructs@10.6.0/node_modules/aws-cdk-lib/aws-ec2/lib/vpc.js:1:257 in .pnpm...",
+        "Array.forEach (:)",
+        "....pnpm..."
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/publicSubnet2/RouteTable": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcpublicSubnet2RouteTable6DC2DDC2"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        ".../Users/8bitnyan/Documents/ThinkTank/controlai-web/node_modules/.pnpm/aws-cdk-lib@2.257.0_constructs@10.6.0/node_modules/aws-cdk-lib/aws-ec2/lib/vpc.js:1:257 in .pnpm...",
+        "Array.forEach (:)",
+        "....pnpm..."
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/publicSubnet2/RouteTableAssociation": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcpublicSubnet2RouteTableAssociation4E6214B6"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        ".../Users/8bitnyan/Documents/ThinkTank/controlai-web/node_modules/.pnpm/aws-cdk-lib@2.257.0_constructs@10.6.0/node_modules/aws-cdk-lib/aws-ec2/lib/vpc.js:1:257 in .pnpm...",
+        "Array.forEach (:)",
+        "....pnpm..."
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/publicSubnet2/DefaultRoute": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcpublicSubnet2DefaultRoute25800AE1"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        ".../Users/8bitnyan/Documents/ThinkTank/controlai-web/node_modules/.pnpm/aws-cdk-lib@2.257.0_constructs@10.6.0/node_modules/aws-cdk-lib/aws-ec2/lib/vpc.js:1:197 in .pnpm...",
+        "Array.forEach (:)",
+        "...new Vpc2 in .pnpm...",
+        "new NetworkStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/network-stack.ts:13:16)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:16:22)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/privateSubnet1/Subnet": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcprivateSubnet1SubnetAC6BE40B"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        ".../Users/8bitnyan/Documents/ThinkTank/controlai-web/node_modules/.pnpm/aws-cdk-lib@2.257.0_constructs@10.6.0/node_modules/aws-cdk-lib/aws-ec2/lib/vpc.js:1:260 in .pnpm...",
+        "Array.forEach (:)",
+        "....pnpm..."
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/privateSubnet1/RouteTable": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcprivateSubnet1RouteTableB984A166"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        ".../Users/8bitnyan/Documents/ThinkTank/controlai-web/node_modules/.pnpm/aws-cdk-lib@2.257.0_constructs@10.6.0/node_modules/aws-cdk-lib/aws-ec2/lib/vpc.js:1:260 in .pnpm...",
+        "Array.forEach (:)",
+        "....pnpm..."
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/privateSubnet1/RouteTableAssociation": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcprivateSubnet1RouteTableAssociation4EE67E88"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        ".../Users/8bitnyan/Documents/ThinkTank/controlai-web/node_modules/.pnpm/aws-cdk-lib@2.257.0_constructs@10.6.0/node_modules/aws-cdk-lib/aws-ec2/lib/vpc.js:1:260 in .pnpm...",
+        "Array.forEach (:)",
+        "....pnpm..."
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/privateSubnet1/DefaultRoute": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcprivateSubnet1DefaultRoute0368CFB0"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Vpc2 in .pnpm...",
+        "new NetworkStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/network-stack.ts:13:16)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:16:22)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)"
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/privateSubnet2/Subnet": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcprivateSubnet2Subnet15E5F7C4"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        ".../Users/8bitnyan/Documents/ThinkTank/controlai-web/node_modules/.pnpm/aws-cdk-lib@2.257.0_constructs@10.6.0/node_modules/aws-cdk-lib/aws-ec2/lib/vpc.js:1:260 in .pnpm...",
+        "Array.forEach (:)",
+        "....pnpm..."
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/privateSubnet2/RouteTable": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcprivateSubnet2RouteTable09A6C85D"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        ".../Users/8bitnyan/Documents/ThinkTank/controlai-web/node_modules/.pnpm/aws-cdk-lib@2.257.0_constructs@10.6.0/node_modules/aws-cdk-lib/aws-ec2/lib/vpc.js:1:260 in .pnpm...",
+        "Array.forEach (:)",
+        "....pnpm..."
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/privateSubnet2/RouteTableAssociation": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcprivateSubnet2RouteTableAssociation75C438AB"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        ".../Users/8bitnyan/Documents/ThinkTank/controlai-web/node_modules/.pnpm/aws-cdk-lib@2.257.0_constructs@10.6.0/node_modules/aws-cdk-lib/aws-ec2/lib/vpc.js:1:260 in .pnpm...",
+        "Array.forEach (:)",
+        "....pnpm..."
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/privateSubnet2/DefaultRoute": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcprivateSubnet2DefaultRouteC95BD864"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Vpc2 in .pnpm...",
+        "new NetworkStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/network-stack.ts:13:16)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:16:22)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)"
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/S3Endpoint/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcS3Endpoint0C4C182D"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.addGatewayEndpoint in .pnpm...",
+        "new NetworkStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/network-stack.ts:32:14)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:16:22)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/EcrApiEndpoint/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcEcrApiEndpoint9767E7B8"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.addInterfaceEndpoint in .pnpm...",
+        "new NetworkStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/network-stack.ts:36:14)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:16:22)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/EcrDockerEndpoint/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcEcrDockerEndpoint1EE8B58A"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.addInterfaceEndpoint in .pnpm...",
+        "new NetworkStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/network-stack.ts:42:14)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:16:22)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/SecretsManagerEndpoint/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcSecretsManagerEndpointFAF910A5"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.addInterfaceEndpoint in .pnpm...",
+        "new NetworkStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/network-stack.ts:48:14)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:16:22)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/CloudWatchLogsEndpoint/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcCloudWatchLogsEndpointC441929F"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.addInterfaceEndpoint in .pnpm...",
+        "new NetworkStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/network-stack.ts:54:14)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:16:22)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/EcrApiEndpoint/SecurityGroup/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcEcrApiEndpointSecurityGroupA62608B6"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.addInterfaceEndpoint in .pnpm...",
+        "new NetworkStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/network-stack.ts:36:14)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:16:22)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)"
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/EcrDockerEndpoint/SecurityGroup/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcEcrDockerEndpointSecurityGroupD5A800A3"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.addInterfaceEndpoint in .pnpm...",
+        "new NetworkStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/network-stack.ts:42:14)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:16:22)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)"
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/SecretsManagerEndpoint/SecurityGroup/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcSecretsManagerEndpointSecurityGroup500A363C"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.addInterfaceEndpoint in .pnpm...",
+        "new NetworkStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/network-stack.ts:48:14)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:16:22)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)"
+      ]
+    }
+  ],
+  "/controlai-network/DaemonVpc/CloudWatchLogsEndpoint/SecurityGroup/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DaemonVpcCloudWatchLogsEndpointSecurityGroupEF040E88"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.addInterfaceEndpoint in .pnpm...",
+        "new NetworkStack (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/lib/network-stack.ts:54:14)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:16:22)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:93:11)"
+      ]
+    }
+  ]
+}

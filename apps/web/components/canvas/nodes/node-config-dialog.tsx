@@ -39,6 +39,14 @@ export function NodeConfigDialog({
   data,
 }: NodeConfigDialogProps) {
   const updateNodeData = useCanvasStore((s) => s.updateNodeData);
+  const { orgId } = useCanvasContext();
+  const device = useCanvasStore((s) => s.getDeviceByCanvasNodeId(nodeId));
+  const registrationState = device?.registrationState ?? 'UNREGISTERED';
+  const isLocked = registrationState !== 'UNREGISTERED';
+  const identityText = registrationState === 'REGISTERED'
+    ? (device?.realUuid ?? device?.deviceKey ?? '—')
+    : (device?.deviceKey ?? '—');
+  const updateDeviceMutation = trpc.device.update.useMutation();
 
   function handleSave(updates: Partial<NodeData>) {
     updateNodeData(nodeId, updates);
@@ -50,10 +58,48 @@ export function NodeConfigDialog({
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Configure {data.label}</DialogTitle>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">State</span>
+              <span className="rounded border px-1.5 py-0.5 text-[10px] font-medium">
+                {registrationState}
+              </span>
+            </div>
+            <p className="font-mono text-[11px] text-muted-foreground">{identityText}</p>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="simulationDesired">Simulation</Label>
+            <label className="flex items-center gap-2 text-sm" htmlFor="simulationDesired">
+              <input
+                id="simulationDesired"
+                type="checkbox"
+                checked={device?.simulationDesired ?? true}
+                disabled={!device || updateDeviceMutation.isPending}
+                onChange={(e) => {
+                  if (!device || !orgId) return;
+                  updateDeviceMutation.mutate({
+                    orgId,
+                    deviceKey: device.deviceKey,
+                    simulationDesired: e.currentTarget.checked,
+                  });
+                }}
+              />
+              <span>Enabled</span>
+            </label>
+          </div>
+          {isLocked ? (
+            <p
+              className="text-xs text-muted-foreground"
+              title="This device is REGISTERED. Edit config from the device management view, or unregister first."
+            >
+              This device is REGISTERED. Edit config from the device management view, or unregister first.
+            </p>
+          ) : null}
         </DialogHeader>
         <NodeConfigForm
           nodeType={nodeType}
           data={data}
+          isLocked={isLocked}
           onSave={handleSave}
           onCancel={onClose}
         />
@@ -65,24 +111,25 @@ export function NodeConfigDialog({
 interface FormProps {
   nodeType: NodeType;
   data: NodeData;
+  isLocked: boolean;
   onSave: (updates: Partial<NodeData>) => void;
   onCancel: () => void;
 }
 
-function NodeConfigForm({ nodeType, data, onSave, onCancel }: FormProps) {
+function NodeConfigForm({ nodeType, data, isLocked, onSave, onCancel }: FormProps) {
   switch (nodeType) {
     case 'sensor':
-      return <SensorConfigForm data={data as SensorData} onSave={onSave} onCancel={onCancel} />;
+      return <SensorConfigForm data={data as SensorData} isLocked={isLocked} onSave={onSave} onCancel={onCancel} />;
     case 'gateway':
-      return <GatewayConfigForm data={data as GatewayData} onSave={onSave} onCancel={onCancel} />;
+      return <GatewayConfigForm data={data as GatewayData} isLocked={isLocked} onSave={onSave} onCancel={onCancel} />;
     case 'broker':
-      return <BrokerConfigForm data={data as BrokerData} onSave={onSave} onCancel={onCancel} />;
+      return <BrokerConfigForm data={data as BrokerData} isLocked={isLocked} onSave={onSave} onCancel={onCancel} />;
     case 'ingest':
-      return <IngestConfigForm data={data as IngestData} onSave={onSave} onCancel={onCancel} />;
+      return <IngestConfigForm data={data as IngestData} isLocked={isLocked} onSave={onSave} onCancel={onCancel} />;
     case 'timescaledb':
-      return <TimescaleDBConfigForm data={data as TimescaleDBData} onSave={onSave} onCancel={onCancel} />;
+      return <TimescaleDBConfigForm data={data as TimescaleDBData} isLocked={isLocked} onSave={onSave} onCancel={onCancel} />;
     case 'monitoring':
-      return <MonitoringConfigForm data={data as MonitoringData} onSave={onSave} onCancel={onCancel} />;
+      return <MonitoringConfigForm data={data as MonitoringData} isLocked={isLocked} onSave={onSave} onCancel={onCancel} />;
   }
 }
 
@@ -90,10 +137,12 @@ function NodeConfigForm({ nodeType, data, onSave, onCancel }: FormProps) {
 
 function SensorConfigForm({
   data,
+  isLocked,
   onSave,
   onCancel,
 }: {
   data: SensorData;
+  isLocked: boolean;
   onSave: (u: Partial<NodeData>) => void;
   onCancel: () => void;
 }) {
@@ -111,10 +160,10 @@ function SensorConfigForm({
         });
       }}
     >
-      <Field label="Label" name="label" defaultValue={data.label} />
-      <Field label="Device ID" name="device_id" defaultValue={data.device_id} />
-      <Field label="Topic prefix" name="topic_prefix" defaultValue={data.topic_prefix} />
-      <SelectField label="QoS" name="qos" defaultValue={data.qos} options={[{ value: '0', label: 'QoS 0' }, { value: '1', label: 'QoS 1' }, { value: '2', label: 'QoS 2' }]} />
+      <Field label="Label" name="label" defaultValue={data.label} disabled={isLocked} />
+      <Field label="Device ID" name="device_id" defaultValue={data.device_id} disabled={isLocked} />
+      <Field label="Topic prefix" name="topic_prefix" defaultValue={data.topic_prefix} disabled={isLocked} />
+      <SelectField label="QoS" name="qos" defaultValue={data.qos} options={[{ value: '0', label: 'QoS 0' }, { value: '1', label: 'QoS 1' }, { value: '2', label: 'QoS 2' }]} disabled={isLocked} />
       <FormActions onCancel={onCancel} />
     </form>
   );
@@ -122,10 +171,12 @@ function SensorConfigForm({
 
 function GatewayConfigForm({
   data,
+  isLocked,
   onSave,
   onCancel,
 }: {
   data: GatewayData;
+  isLocked: boolean;
   onSave: (u: Partial<NodeData>) => void;
   onCancel: () => void;
 }) {
@@ -148,7 +199,7 @@ function GatewayConfigForm({
         });
       }}
     >
-      <Field label="Label" name="label" defaultValue={data.label} />
+      <Field label="Label" name="label" defaultValue={data.label} disabled={isLocked} />
       {gateways && gateways.length > 0 ? (
         <div className="space-y-1">
           <Label htmlFor="gateway_id">Linked Gateway</Label>
@@ -157,6 +208,7 @@ function GatewayConfigForm({
             name="gateway_id"
             defaultValue={data.gateway_id}
             className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            disabled={isLocked}
           >
             <option value="">— none —</option>
             {gateways.map((gw) => (
@@ -170,9 +222,9 @@ function GatewayConfigForm({
           </p>
         </div>
       ) : (
-        <Field label="Gateway ID" name="gateway_id" defaultValue={data.gateway_id} />
+        <Field label="Gateway ID" name="gateway_id" defaultValue={data.gateway_id} disabled={isLocked} />
       )}
-      <SelectField label="Protocol" name="protocol" defaultValue={data.protocol} options={[{ value: 'mqtt', label: 'MQTT' }, { value: 'coap', label: 'CoAP' }, { value: 'http', label: 'HTTP' }]} />
+      <SelectField label="Protocol" name="protocol" defaultValue={data.protocol} options={[{ value: 'mqtt', label: 'MQTT' }, { value: 'coap', label: 'CoAP' }, { value: 'http', label: 'HTTP' }]} disabled={isLocked} />
       <FormActions onCancel={onCancel} />
     </form>
   );
@@ -180,10 +232,12 @@ function GatewayConfigForm({
 
 function BrokerConfigForm({
   data,
+  isLocked,
   onSave,
   onCancel,
 }: {
   data: BrokerData;
+  isLocked: boolean;
   onSave: (u: Partial<NodeData>) => void;
   onCancel: () => void;
 }) {
@@ -200,9 +254,9 @@ function BrokerConfigForm({
         });
       }}
     >
-      <Field label="Label" name="label" defaultValue={data.label} />
-      <SelectField label="Broker kind" name="kind" defaultValue={data.kind} options={[{ value: 'mosquitto', label: 'Mosquitto' }, { value: 'emqx', label: 'EMQX' }]} />
-      <SelectField label="Throughput" name="throughput" defaultValue={data.throughput} options={[{ value: 'low', label: 'Low' }, { value: 'mid', label: 'Mid' }]} />
+      <Field label="Label" name="label" defaultValue={data.label} disabled={isLocked} />
+      <SelectField label="Broker kind" name="kind" defaultValue={data.kind} options={[{ value: 'mosquitto', label: 'Mosquitto' }, { value: 'emqx', label: 'EMQX' }]} disabled={isLocked} />
+      <SelectField label="Throughput" name="throughput" defaultValue={data.throughput} options={[{ value: 'low', label: 'Low' }, { value: 'mid', label: 'Mid' }]} disabled={isLocked} />
       <FormActions onCancel={onCancel} />
     </form>
   );
@@ -210,10 +264,12 @@ function BrokerConfigForm({
 
 function IngestConfigForm({
   data,
+  isLocked,
   onSave,
   onCancel,
 }: {
   data: IngestData;
+  isLocked: boolean;
   onSave: (u: Partial<NodeData>) => void;
   onCancel: () => void;
 }) {
@@ -230,9 +286,9 @@ function IngestConfigForm({
         });
       }}
     >
-      <Field label="Label" name="label" defaultValue={data.label} />
-      <SelectField label="Direction" name="direction" defaultValue={data.direction} options={[{ value: 'uni', label: 'Unidirectional' }, { value: 'bi', label: 'Bidirectional' }]} />
-      <Field label="Batch size" name="batch_size" type="number" defaultValue={String(data.batch_size)} />
+      <Field label="Label" name="label" defaultValue={data.label} disabled={isLocked} />
+      <SelectField label="Direction" name="direction" defaultValue={data.direction} options={[{ value: 'uni', label: 'Unidirectional' }, { value: 'bi', label: 'Bidirectional' }]} disabled={isLocked} />
+      <Field label="Batch size" name="batch_size" type="number" defaultValue={String(data.batch_size)} disabled={isLocked} />
       <FormActions onCancel={onCancel} />
     </form>
   );
@@ -240,10 +296,12 @@ function IngestConfigForm({
 
 function TimescaleDBConfigForm({
   data,
+  isLocked,
   onSave,
   onCancel,
 }: {
   data: TimescaleDBData;
+  isLocked: boolean;
   onSave: (u: Partial<NodeData>) => void;
   onCancel: () => void;
 }) {
@@ -259,7 +317,7 @@ function TimescaleDBConfigForm({
         });
       }}
     >
-      <Field label="Label" name="label" defaultValue={data.label} />
+      <Field label="Label" name="label" defaultValue={data.label} disabled={isLocked} />
       <SelectField
         label="Retention period"
         name="retention"
@@ -271,6 +329,7 @@ function TimescaleDBConfigForm({
           { value: '7d', label: '7 days' },
           { value: '30d', label: '30 days' },
         ]}
+        disabled={isLocked}
       />
       <FormActions onCancel={onCancel} />
     </form>
@@ -279,10 +338,12 @@ function TimescaleDBConfigForm({
 
 function MonitoringConfigForm({
   data,
+  isLocked,
   onSave,
   onCancel,
 }: {
   data: MonitoringData;
+  isLocked: boolean;
   onSave: (u: Partial<NodeData>) => void;
   onCancel: () => void;
 }) {
@@ -299,7 +360,7 @@ function MonitoringConfigForm({
         });
       }}
     >
-      <Field label="Label" name="label" defaultValue={data.label} />
+      <Field label="Label" name="label" defaultValue={data.label} disabled={isLocked} />
       <div className="space-y-2">
         <Label>Metrics</Label>
         {(['msg_rate', 'lag', 'error_rate'] as const).map((m) => (
@@ -309,6 +370,7 @@ function MonitoringConfigForm({
               name="metrics"
               value={m}
               defaultChecked={data.metrics.includes(m)}
+              disabled={isLocked}
             />
             {m.replace('_', ' ')}
           </label>
@@ -326,16 +388,18 @@ function Field({
   name,
   defaultValue,
   type = 'text',
+  disabled = false,
 }: {
   label: string;
   name: string;
   defaultValue: string;
   type?: string;
+  disabled?: boolean;
 }) {
   return (
     <div className="space-y-1">
       <Label htmlFor={name}>{label}</Label>
-      <Input id={name} name={name} type={type} defaultValue={defaultValue} />
+      <Input id={name} name={name} type={type} defaultValue={defaultValue} disabled={disabled} />
     </div>
   );
 }
@@ -345,11 +409,13 @@ function SelectField({
   name,
   defaultValue,
   options,
+  disabled = false,
 }: {
   label: string;
   name: string;
   defaultValue: string;
   options: { value: string; label: string }[];
+  disabled?: boolean;
 }) {
   return (
     <div className="space-y-1">
@@ -358,6 +424,7 @@ function SelectField({
         id={name}
         name={name}
         defaultValue={defaultValue}
+        disabled={disabled}
         className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         {options.map((o) => (

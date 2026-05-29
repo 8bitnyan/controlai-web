@@ -1,0 +1,34 @@
+name: Infra Synth Smoke
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/infra/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/infra-synth.yml'
+
+jobs:
+  infra-synth:
+    name: Infra synth
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: 'controlai-web/pnpm-lock.yaml'
+
+      - name: Install dependencies
+        working-directory: controlai-web
+        run: pnpm install --frozen-lockfile
+
+      - name: Infra synth smoke
+        working-directory: controlai-web
+        run: pnpm --filter @controlai-web/infra synth

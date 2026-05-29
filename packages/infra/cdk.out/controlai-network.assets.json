@@ -1,0 +1,21 @@
+{
+  "version": "53.0.0",
+  "files": {
+    "b7b2e63e6aecc01f90e92426bf198001fd6f9542b4bd0303591f66a062e0cf3d": {
+      "displayName": "controlai-network Template",
+      "source": {
+        "path": "controlai-network.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "754248136265-ap-northeast-2-bd31f625": {
+          "bucketName": "cdk-hnb659fds-assets-754248136265-ap-northeast-2",
+          "objectKey": "b7b2e63e6aecc01f90e92426bf198001fd6f9542b4bd0303591f66a062e0cf3d.json",
+          "region": "ap-northeast-2",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::754248136265:role/cdk-hnb659fds-file-publishing-role-754248136265-ap-northeast-2"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

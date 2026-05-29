@@ -1,0 +1,570 @@
+{
+ "Resources": {
+  "DaemonCluster70162C99": {
+   "Type": "AWS::ECS::Cluster",
+   "Properties": {
+    "ClusterName": "controlai-daemons"
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ecs/DaemonCluster/Resource"
+   }
+  },
+  "DaemonCluster220E1DCD": {
+   "Type": "AWS::ECS::ClusterCapacityProviderAssociations",
+   "Properties": {
+    "CapacityProviders": [
+     {
+      "Ref": "DaemonAsgCapacityProvider4D5A6771"
+     }
+    ],
+    "Cluster": {
+     "Ref": "DaemonCluster70162C99"
+    },
+    "DefaultCapacityProviderStrategy": []
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ecs/DaemonCluster/DaemonCluster"
+   }
+  },
+  "DaemonAsgInstanceSecurityGroup6D81221F": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "controlai-ecs/DaemonAsg/InstanceSecurityGroup",
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow all outbound traffic by default",
+      "IpProtocol": "-1"
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "controlai-ecs/DaemonAsg"
+     }
+    ],
+    "VpcId": {
+     "Fn::ImportValue": "controlai-network:ExportsOutputRefDaemonVpc4F414DD9BCA9D7BA"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ecs/DaemonAsg/InstanceSecurityGroup/Resource"
+   }
+  },
+  "DaemonAsgInstanceRoleCE0D434A": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "ec2.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "controlai-ecs/DaemonAsg"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ecs/DaemonAsg/InstanceRole/Resource"
+   }
+  },
+  "DaemonAsgInstanceRoleDefaultPolicy9BC7E9BC": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "ecs:DeregisterContainerInstance",
+        "ecs:RegisterContainerInstance",
+        "ecs:Submit*"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "DaemonCluster70162C99",
+         "Arn"
+        ]
+       }
+      },
+      {
+       "Action": [
+        "ecs:Poll",
+        "ecs:StartTelemetrySession"
+       ],
+       "Condition": {
+        "ArnEquals": {
+         "ecs:cluster": {
+          "Fn::GetAtt": [
+           "DaemonCluster70162C99",
+           "Arn"
+          ]
+         }
+        }
+       },
+       "Effect": "Allow",
+       "Resource": "*"
+      },
+      {
+       "Action": [
+        "ecs:DiscoverPollEndpoint",
+        "ecr:GetAuthorizationToken",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+       ],
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "DaemonAsgInstanceRoleDefaultPolicy9BC7E9BC",
+    "Roles": [
+     {
+      "Ref": "DaemonAsgInstanceRoleCE0D434A"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ecs/DaemonAsg/InstanceRole/DefaultPolicy/Resource"
+   }
+  },
+  "DaemonAsgInstanceProfile3AABCB4E": {
+   "Type": "AWS::IAM::InstanceProfile",
+   "Properties": {
+    "Roles": [
+     {
+      "Ref": "DaemonAsgInstanceRoleCE0D434A"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ecs/DaemonAsg/InstanceProfile"
+   }
+  },
+  "DaemonAsgLaunchConfigA066814B": {
+   "Type": "AWS::AutoScaling::LaunchConfiguration",
+   "Properties": {
+    "IamInstanceProfile": {
+     "Ref": "DaemonAsgInstanceProfile3AABCB4E"
+    },
+    "ImageId": {
+     "Ref": "SsmParameterValueawsserviceecsoptimizedamiamazonlinux2recommendedimageidC96584B6F00A464EAD1953AFF4B05118Parameter"
+    },
+    "InstanceType": "t3.medium",
+    "SecurityGroups": [
+     {
+      "Fn::GetAtt": [
+       "DaemonAsgInstanceSecurityGroup6D81221F",
+       "GroupId"
+      ]
+     }
+    ],
+    "UserData": {
+     "Fn::Base64": {
+      "Fn::Join": [
+       "",
+       [
+        "#!/bin/bash\necho ECS_CLUSTER=",
+        {
+         "Ref": "DaemonCluster70162C99"
+        },
+        " >> /etc/ecs/ecs.config"
+       ]
+      ]
+     }
+    }
+   },
+   "DependsOn": [
+    "DaemonAsgInstanceRoleDefaultPolicy9BC7E9BC",
+    "DaemonAsgInstanceRoleCE0D434A"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "controlai-ecs/DaemonAsg/LaunchConfig"
+   }
+  },
+  "DaemonAsgASG0649C42E": {
+   "Type": "AWS::AutoScaling::AutoScalingGroup",
+   "Properties": {
+    "LaunchConfigurationName": {
+     "Ref": "DaemonAsgLaunchConfigA066814B"
+    },
+    "MaxSize": "10",
+    "MinSize": "1",
+    "NewInstancesProtectedFromScaleIn": true,
+    "Tags": [
+     {
+      "Key": "Name",
+      "PropagateAtLaunch": true,
+      "Value": "controlai-ecs/DaemonAsg"
+     }
+    ],
+    "VPCZoneIdentifier": [
+     {
+      "Fn::ImportValue": "controlai-network:ExportsOutputRefDaemonVpcprivateSubnet1SubnetAC6BE40B1F39A9C7"
+     },
+     {
+      "Fn::ImportValue": "controlai-network:ExportsOutputRefDaemonVpcprivateSubnet2Subnet15E5F7C42737D7BF"
+     }
+    ]
+   },
+   "UpdatePolicy": {
+    "AutoScalingScheduledAction": {
+     "IgnoreUnmodifiedGroupSizeProperties": true
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ecs/DaemonAsg/ASG"
+   }
+  },
+  "DaemonAsgCapacityProvider4D5A6771": {
+   "Type": "AWS::ECS::CapacityProvider",
+   "Properties": {
+    "AutoScalingGroupProvider": {
+     "AutoScalingGroupArn": {
+      "Ref": "DaemonAsgASG0649C42E"
+     },
+     "ManagedScaling": {
+      "Status": "ENABLED",
+      "TargetCapacity": 100
+     },
+     "ManagedTerminationProtection": "ENABLED"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ecs/DaemonAsgCapacityProvider/DaemonAsgCapacityProvider"
+   }
+  },
+  "DaemonTaskRole57363653": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "ecs-tasks.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "RoleName": "controlai-daemon-task-role"
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ecs/DaemonTaskRole/Resource"
+   }
+  },
+  "DaemonSecretsKeyE127BBBF": {
+   "Type": "AWS::KMS::Key",
+   "Properties": {
+    "EnableKeyRotation": true,
+    "KeyPolicy": {
+     "Statement": [
+      {
+       "Action": "kms:*",
+       "Effect": "Allow",
+       "Principal": {
+        "AWS": {
+         "Fn::Join": [
+          "",
+          [
+           "arn:",
+           {
+            "Ref": "AWS::Partition"
+           },
+           ":iam::754248136265:root"
+          ]
+         ]
+        }
+       },
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "controlai-ecs/DaemonSecretsKey/Resource"
+   }
+  },
+  "DaemonSecretsKeyAliasCA85E257": {
+   "Type": "AWS::KMS::Alias",
+   "Properties": {
+    "AliasName": "alias/controlai/daemon-secrets",
+    "TargetKeyId": {
+     "Fn::GetAtt": [
+      "DaemonSecretsKeyE127BBBF",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ecs/DaemonSecretsKey/Alias/Resource"
+   }
+  },
+  "DaemonExecutionRoleE49E45D9": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "ecs-tasks.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+       ]
+      ]
+     }
+    ],
+    "RoleName": "controlai-daemon-execution-role"
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ecs/DaemonExecutionRole/Resource"
+   }
+  },
+  "DaemonExecutionRoleDefaultPolicy3831F171": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "secretsmanager:GetSecretValue",
+       "Effect": "Allow",
+       "Resource": "arn:aws:secretsmanager:*:*:secret:controlai/daemon/*"
+      },
+      {
+       "Action": "kms:Decrypt",
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "DaemonSecretsKeyE127BBBF",
+         "Arn"
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "DaemonExecutionRoleDefaultPolicy3831F171",
+    "Roles": [
+     {
+      "Ref": "DaemonExecutionRoleE49E45D9"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ecs/DaemonExecutionRole/DefaultPolicy/Resource"
+   }
+  },
+  "DaemonRepositoryF5A97133": {
+   "Type": "AWS::ECR::Repository",
+   "Properties": {
+    "LifecyclePolicy": {
+     "LifecyclePolicyText": "{\"rules\":[{\"rulePriority\":1,\"selection\":{\"tagStatus\":\"any\",\"countType\":\"imageCountMoreThan\",\"countNumber\":10},\"action\":{\"type\":\"expire\"}}]}"
+    },
+    "RepositoryName": "controlai-daemon"
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "controlai-ecs/DaemonRepository/Resource"
+   }
+  },
+  "DaemonLogGroupBA9D5642": {
+   "Type": "AWS::Logs::LogGroup",
+   "Properties": {
+    "LogGroupName": "/aws/ecs/controlai-daemons",
+    "RetentionInDays": 30
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "controlai-ecs/DaemonLogGroup/Resource"
+   }
+  },
+  "DaemonSecurityGroup88E8CDCD": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "Security group for daemon ECS tasks",
+    "GroupName": "controlai-daemon-tasks",
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow HTTPS outbound",
+      "FromPort": 443,
+      "IpProtocol": "tcp",
+      "ToPort": 443
+     },
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow MQTT outbound",
+      "FromPort": 1883,
+      "IpProtocol": "tcp",
+      "ToPort": 1883
+     },
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow MQTT over TLS outbound",
+      "FromPort": 8883,
+      "IpProtocol": "tcp",
+      "ToPort": 8883
+     }
+    ],
+    "VpcId": {
+     "Fn::ImportValue": "controlai-network:ExportsOutputRefDaemonVpc4F414DD9BCA9D7BA"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ecs/DaemonSecurityGroup/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/2VQzU4CMRB+Fu5lJJsYz5s9GKMHsjyAGcuwDnQ7pNNCSNN3Ny1GFE/f33ydth10j0+wWuBZl3Z7WDr+gLyJaA8Gz/qeySrkwSWNFMyw8//pgEe0HC/rICfeUuhVxTJGFq+m1+k+b9U7rxhMUdSiYz9B7lOUzVU8B0nHWnnD5O3nIH7HUwrt+GrfjxZDtoO8IZsCx8tP/Y9RDOMMeRRHNWu4Fsf2UuWNvXiN6C2tg+zYUTGHWSG/Ugsr9I5R2zUqqbsD5JGOohwltLGbKsbJpJDf5NervnkpbTMGnKl+70gqKVgqxsuWYK8Pp66DroPVYq/My5B85JlgvOIXaFTh0MYBAAA="
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-ecs/CDKMetadata/Default"
+   }
+  }
+ },
+ "Parameters": {
+  "SsmParameterValueawsserviceecsoptimizedamiamazonlinux2recommendedimageidC96584B6F00A464EAD1953AFF4B05118Parameter": {
+   "Type": "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
+   "Default": "/aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id"
+  },
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Outputs": {
+  "ExportsOutputRefDaemonCluster70162C99C61B0006": {
+   "Value": {
+    "Ref": "DaemonCluster70162C99"
+   },
+   "Export": {
+    "Name": "controlai-ecs:ExportsOutputRefDaemonCluster70162C99C61B0006"
+   }
+  },
+  "ExportsOutputFnGetAttDaemonSecurityGroup88E8CDCDGroupId8C867987": {
+   "Value": {
+    "Fn::GetAtt": [
+     "DaemonSecurityGroup88E8CDCD",
+     "GroupId"
+    ]
+   },
+   "Export": {
+    "Name": "controlai-ecs:ExportsOutputFnGetAttDaemonSecurityGroup88E8CDCDGroupId8C867987"
+   }
+  },
+  "ExportsOutputFnGetAttDaemonTaskRole57363653ArnEFC355B2": {
+   "Value": {
+    "Fn::GetAtt": [
+     "DaemonTaskRole57363653",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "controlai-ecs:ExportsOutputFnGetAttDaemonTaskRole57363653ArnEFC355B2"
+   }
+  },
+  "ExportsOutputFnGetAttDaemonExecutionRoleE49E45D9Arn67F5D151": {
+   "Value": {
+    "Fn::GetAtt": [
+     "DaemonExecutionRoleE49E45D9",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "controlai-ecs:ExportsOutputFnGetAttDaemonExecutionRoleE49E45D9Arn67F5D151"
+   }
+  },
+  "ExportsOutputFnGetAttDaemonSecretsKeyE127BBBFArnA2F7AC25": {
+   "Value": {
+    "Fn::GetAtt": [
+     "DaemonSecretsKeyE127BBBF",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "controlai-ecs:ExportsOutputFnGetAttDaemonSecretsKeyE127BBBFArnA2F7AC25"
+   }
+  },
+  "ExportsOutputRefDaemonLogGroupBA9D5642EFFC9A0D": {
+   "Value": {
+    "Ref": "DaemonLogGroupBA9D5642"
+   },
+   "Export": {
+    "Name": "controlai-ecs:ExportsOutputRefDaemonLogGroupBA9D5642EFFC9A0D"
+   }
+  },
+  "ExportsOutputFnGetAttDaemonCluster70162C99Arn0AAA4084": {
+   "Value": {
+    "Fn::GetAtt": [
+     "DaemonCluster70162C99",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "controlai-ecs:ExportsOutputFnGetAttDaemonCluster70162C99Arn0AAA4084"
+   }
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

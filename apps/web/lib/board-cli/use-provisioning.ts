@@ -43,6 +43,8 @@ function mapItemToStep(itemId: BoardCliCommand['itemId']): ProvisioningStep {
       return 'SENDING_CERTKEY';
     case 'reboot':
       return 'REBOOTING';
+    case 'status':
+      return 'READING_DEVICE_INFO';
   }
 }
 
@@ -98,27 +100,68 @@ export function useProvisioning(gatewayId: string, orgId: string): {
       session.on('line', (line) => dispatch({ type: 'CONSOLE_LINE_APPENDED', line }));
 
       currentStep = 'PROBING';
+      // Wait specifically for the application CLI prompt (`CLI>`).
+      // If we see `bootloader>` we must wait for auto-boot (~2s) to complete and the app
+      // to emit `CLI>` — firing commands at the bootloader prompt fails with
+      // "bootloader> Unknown command: 'group_id'".
+      const PROBE_DEADLINE_MS = 20000; // 20s — covers bootloader countdown + app init
+      const sawAppPrompt = await new Promise<boolean>((resolve) => {
+        let done = false;
+        let sawBootloader = false;
+        const off = session.on('line', (line: string) => {
+          if (done) return;
+          if (/^CLI>/i.test(line.trim())) {
+            done = true;
+            off();
+            resolve(true);
+            return;
+          }
+          if (/^bootloader>/i.test(line.trim())) {
+            sawBootloader = true;
+            // Do not respond — let auto-boot proceed.
+          }
+        });
+        setTimeout(() => {
+          if (done) return;
+          done = true;
+          off();
+          resolve(false);
+        }, PROBE_DEADLINE_MS);
+        // Nudge once: a bare newline often makes idle firmwares re-emit their prompt.
+        // But ONLY nudge if we have NOT seen bootloader prompt — pressing keys during
+        // bootloader countdown aborts auto-boot.
+        setTimeout(() => {
+          if (done || sawBootloader) return;
+          session.writeLine('').catch(() => undefined);
+        }, 500);
+      });
+      if (!sawAppPrompt) {
+        throw new Error(
+          '애플리케이션 CLI 프롬프트(CLI>)를 받지 못했습니다. 보드가 bootloader 모드에 멈춰 있거나 부팅이 실패했습니다. 보드를 리셋하고 재시도하세요.',
+        );
+      }
+      dispatch({ type: 'PROBE_SUCCEEDED' });
+      completedRef.current.push('PROBING');
+
+      // Halt gateway runtime logic so it does not interfere with provisioning commands.
+      // Firmware advertises: "Gateway starts in 5s. Type 'stop' for manual mode."
       try {
-        await session.sendCommand('', { timeoutMs: BOARD_PROBE_TIMEOUT_MS });
-        dispatch({ type: 'PROBE_SUCCEEDED' });
-        completedRef.current.push('PROBING');
-      } catch (error) {
-        if (error instanceof CliTimeoutError) {
-          dispatch({ type: 'PROBE_TIMED_OUT_NEEDS_BOOT' });
-          currentStep = 'BOOTING_APP';
-          await session.sendCommand('boot', { timeoutMs: BOARD_BOOT_TIMEOUT_MS });
-          dispatch({ type: 'BOOT_COMPLETED' });
-          completedRef.current.push('BOOTING_APP');
-        } else {
-          throw error;
-        }
+        await session.sendCommand('stop', {
+          timeoutMs: 3000,
+          successRegex: /\b(stopped|manual|ok)\b/i,
+        });
+      } catch {
+        // best-effort — if `stop` is not recognized on this firmware variant, proceed anyway
       }
 
       currentStep = 'READING_DEVICE_INFO';
       let deviceSerial: string | undefined;
       try {
-        const statusLines = await session.sendCommand('status', { timeoutMs: 2000 });
-        const match = statusLines.join('\n').match(/serial[:=\s]+([A-Za-z0-9-]+)/i);
+        const statusLines = await session.sendCommand('status', {
+          timeoutMs: 3000,
+          successRegex: /board id:/i,
+        });
+        const match = statusLines.join('\n').match(/board id:\s*([A-Za-z0-9-]+)/i);
         deviceSerial = match?.[1];
       } catch {
         // best-effort
@@ -134,7 +177,8 @@ export function useProvisioning(gatewayId: string, orgId: string): {
         if (cmd.kind === 'single') {
           const value = cmd.itemId === 'group_id' ? bundle.groupId : bundle.endpointURL;
           await session.sendCommand(buildSingleCommandLine(cmd, value), {
-            timeoutMs: 5000,
+            timeoutMs: 8000,
+            successRegex: /\b(set to:|saved|ok)\b/i,
             failureRegex: BOARD_DEFAULT_FAILURE_REGEX,
           });
         } else if (cmd.kind === 'chunked') {

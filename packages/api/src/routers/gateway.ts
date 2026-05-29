@@ -10,6 +10,26 @@ import { simStart, simStop, simStatus, SimulatorError } from '../lib/simulator-c
 import { pemToHexChunks } from '../lib/pem-to-hex';
 import { BOARD_PROVISION_SEQUENCE } from '../lib/board-cli-spec';
 import type { GatewayDTO, SensorConfig, DetectBrokerEndpointResult } from '@controlai-web/shared-types';
+import type { DiscoveredChild, MatchPlan, RegistrationDecisions } from '@controlai-web/shared-types';
+import { proposeRegistrationMatch } from '../lib/registration-matcher';
+import { revokeCert } from '../lib/daemon-cert-revoke';
+import { appendNodeToNodeConfig } from '../lib/nodeconfig-internal';
+
+const REGISTRATION_ACTIONS = ['gateway.register-start', 'gateway.register-proposed', 'gateway.register-success', 'gateway.register-failed', 'gateway.register-aborted', 'gateway.re-register-start', 'gateway.register-expired'] as const;
+
+function recordRegistrationAudit(
+  prisma: unknown,
+  payload: { orgId: string; userId: string | null; action: (typeof REGISTRATION_ACTIONS)[number]; targetId: string; metadata: Record<string, unknown> },
+): void {
+  void writeAudit(prisma as never, {
+    orgId: payload.orgId,
+    userId: payload.userId,
+    action: payload.action,
+    targetId: payload.targetId,
+    targetType: 'Gateway',
+    metadata: payload.metadata,
+  });
+}
 
 const STREAM_JWT_SECRET_RAW = process.env.STREAM_JWT_SECRET;
 const SIMULATOR_PUBLIC_URL =
@@ -199,6 +219,11 @@ export const gatewayRouter = router({
         });
       }
 
+      const previousRow = await ctx.prisma.gateway.findUniqueOrThrow({
+        where: { id: input.gatewayId },
+        select: { clientId: true },
+      });
+      const previousClientId = previousRow.clientId;
       const updated = await ctx.prisma.gateway.update({
         where: { id: input.gatewayId },
         data: {
@@ -220,6 +245,17 @@ export const gatewayRouter = router({
           ...(input.jsonTopicTemplate !== undefined ? { jsonTopicTemplate: input.jsonTopicTemplate } : {}),
         },
       });
+
+      // Invalidate topic-translator cache when clientId changed so stale Prisma
+      // clientId→deviceKey lookups are not served.
+      if (input.clientId !== undefined && input.clientId !== previousClientId) {
+        try {
+          const { invalidateClientIdCache } = await import('@controlai-web/runtime-drivers');
+          invalidateClientIdCache(previousClientId);
+        } catch {
+          // runtime-drivers may not be wired in some environments; safe to swallow.
+        }
+      }
 
       return toDTO(updated);
     }),
@@ -749,5 +785,100 @@ export const gatewayRouter = router({
       });
 
       return { ok: true as const };
+    }),
+
+  beginRegistration: orgProcedure
+    .input(z.object({ orgId: z.string().cuid(), gatewayDeviceKey: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.$transaction(async (tx) => {
+        const gateway = await tx.device.findUnique({ where: { deviceKey: input.gatewayDeviceKey } });
+        if (!gateway) throw new TRPCError({ code: 'NOT_FOUND' });
+        const now = new Date();
+        const existing = await tx.registrationProposal.findFirst({ where: { gatewayDeviceKey: input.gatewayDeviceKey, state: 'PROPOSED', expiresAt: { gt: now } }, orderBy: { createdAt: 'desc' } });
+        if (existing) return { registrationSessionId: existing.id, resumed: true };
+
+        await tx.device.updateMany({ where: { OR: [{ deviceKey: gateway.deviceKey }, { parentDeviceKey: gateway.deviceKey }] }, data: { registrationState: 'REGISTERING' } });
+        const proposal = await tx.registrationProposal.create({ data: { gatewayDeviceKey: gateway.deviceKey, state: 'PROPOSED', boardReportedUuid: '', discoveredChildrenJson: [], expiresAt: new Date(now.getTime() + 30 * 60 * 1000) } });
+        recordRegistrationAudit(tx, { orgId: ctx.orgId!, userId: ctx.userId, action: 'gateway.register-start', targetId: gateway.deviceKey, metadata: { gatewayDeviceKey: gateway.deviceKey, registrationSessionId: proposal.id } });
+        return { registrationSessionId: proposal.id, resumed: false };
+      });
+    }),
+
+  proposeRegistration: orgProcedure
+    .input(z.object({ orgId: z.string().cuid(), registrationSessionId: z.string().cuid(), boardReportedUuid: z.string(), discoveredChildren: z.array(z.custom<DiscoveredChild>()) }))
+    .mutation(async ({ ctx, input }) => {
+      const proposal = await ctx.prisma.registrationProposal.findUnique({ where: { id: input.registrationSessionId } });
+      if (!proposal || proposal.state !== 'PROPOSED' || proposal.expiresAt < new Date()) throw new TRPCError({ code: 'PRECONDITION_FAILED' });
+      const shadows = await ctx.prisma.device.findMany({ where: { parentDeviceKey: proposal.gatewayDeviceKey } });
+      const lastKnown = await ctx.prisma.registrationProposal.findFirst({ where: { gatewayDeviceKey: proposal.gatewayDeviceKey, state: 'COMMITTED' }, orderBy: { committedAt: 'desc' } });
+      const matchPlan = proposeRegistrationMatch(shadows, input.discoveredChildren, (lastKnown?.userDecisionsJson as RegistrationDecisions | null) ?? null);
+      await ctx.prisma.registrationProposal.update({ where: { id: proposal.id }, data: { boardReportedUuid: input.boardReportedUuid, discoveredChildrenJson: input.discoveredChildren, matchPlanJson: matchPlan } });
+      recordRegistrationAudit(ctx.prisma, { orgId: ctx.orgId!, userId: ctx.userId, action: 'gateway.register-proposed', targetId: proposal.gatewayDeviceKey, metadata: { gatewayDeviceKey: proposal.gatewayDeviceKey, registrationSessionId: proposal.id } });
+      return { matchPlan, expiresAt: proposal.expiresAt };
+    }),
+
+  commitRegistration: orgProcedure
+    .input(z.object({ orgId: z.string().cuid(), registrationSessionId: z.string().cuid(), decisions: z.custom<RegistrationDecisions>(), mode: z.enum(['new', 're-register']).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const proposal = await ctx.prisma.registrationProposal.findUnique({ where: { id: input.registrationSessionId } });
+      if (!proposal || proposal.state !== 'PROPOSED' || proposal.expiresAt < new Date()) throw new TRPCError({ code: 'PRECONDITION_FAILED' });
+      const matchPlan = proposal.matchPlanJson as MatchPlan | null;
+      if (!matchPlan || matchPlan.unknownTypes.length > 0) throw new TRPCError({ code: 'PRECONDITION_FAILED' });
+
+      const gw = await ctx.prisma.device.findUnique({ where: { deviceKey: proposal.gatewayDeviceKey } });
+      if (!gw) throw new TRPCError({ code: 'NOT_FOUND' });
+
+      if (input.mode === 're-register') {
+        const revoke = await revokeCert({ tenantId: gw.siteGroupId, fingerprint: gw.realUuid ?? '' });
+        if (!revoke.ok) console.warn('[gateway.re-register] revoke failed', revoke.message);
+        recordRegistrationAudit(ctx.prisma, { orgId: ctx.orgId!, userId: ctx.userId, action: 'gateway.re-register-start', targetId: gw.deviceKey, metadata: { gatewayDeviceKey: gw.deviceKey, registrationSessionId: proposal.id } });
+      }
+
+      await ctx.prisma.$transaction(async (tx) => {
+        await tx.device.update({ where: { deviceKey: gw.deviceKey }, data: { realUuid: matchPlan.gatewayMatch.boardReportedUuid, registrationState: 'REGISTERED', simulationDesired: false, registeredAt: new Date(), registeredByUserId: ctx.userId } });
+
+        for (const confirmed of input.decisions.confirmedMatches) {
+          const child = matchPlan.confirmedMatches.find((m) => m.shadowDeviceKey === confirmed.shadowDeviceKey && m.discovered.raw === confirmed.discoveredRaw);
+          if (!child) continue;
+          await tx.device.update({ where: { deviceKey: child.shadowDeviceKey }, data: { realUuid: child.discovered.raw, registrationState: 'REGISTERED', simulationDesired: false, portBindings: child.proposedPortBindings, deviceTypeId: child.resolvedDeviceTypeId } });
+        }
+
+        for (const extra of input.decisions.acceptExtras) {
+          if (!extra.placeOnCanvas) continue;
+          const nodeId = `auto-${extra.discoveredRaw}`;
+          await tx.device.create({ data: { siteGroupId: gw.siteGroupId, canvasNodeId: nodeId, deviceTypeId: extra.deviceTypeId, parentDeviceKey: gw.deviceKey, shadowUuid: extra.discoveredRaw, realUuid: extra.discoveredRaw, registrationState: 'REGISTERED', simulationDesired: false } });
+          await appendNodeToNodeConfig(tx, gw.siteGroupId, { id: nodeId, type: 'deviceNode', position: { x: 0, y: 0 }, data: { label: nodeId, deviceTypeId: extra.deviceTypeId }, parentCanvasNodeId: gw.canvasNodeId });
+        }
+
+        for (const rejected of input.decisions.rejectShadows) {
+          if (rejected.action === 'soft-archive') await tx.device.update({ where: { deviceKey: rejected.shadowDeviceKey }, data: { registrationState: 'ORPHANED' } });
+          if (rejected.action === 'keep-simulated') await tx.device.update({ where: { deviceKey: rejected.shadowDeviceKey }, data: { registrationState: 'UNREGISTERED' } });
+          if (rejected.action === 'keep-as-manual') await tx.device.update({ where: { deviceKey: rejected.shadowDeviceKey }, data: { config: { manual: true } } });
+        }
+
+        await tx.registrationProposal.update({ where: { id: proposal.id }, data: { state: 'COMMITTED', userDecisionsJson: input.decisions, committedAt: new Date() } });
+        recordRegistrationAudit(tx, { orgId: ctx.orgId!, userId: ctx.userId, action: 'gateway.register-success', targetId: gw.deviceKey, metadata: { gatewayDeviceKey: gw.deviceKey, registrationSessionId: proposal.id } });
+      });
+
+      return { ok: true, gatewayDeviceKey: gw.deviceKey };
+    }),
+
+  abortRegistration: orgProcedure
+    .input(z.object({ orgId: z.string().cuid(), registrationSessionId: z.string().cuid(), reason: z.string().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.prisma.$transaction(async (tx) => {
+        const proposal = await tx.registrationProposal.findUnique({ where: { id: input.registrationSessionId } });
+        if (!proposal) throw new TRPCError({ code: 'NOT_FOUND' });
+        await tx.device.updateMany({ where: { OR: [{ deviceKey: proposal.gatewayDeviceKey }, { parentDeviceKey: proposal.gatewayDeviceKey }], registrationState: 'REGISTERING' }, data: { registrationState: 'UNREGISTERED' } });
+        await tx.registrationProposal.update({ where: { id: proposal.id }, data: { state: 'ABORTED', abortedAt: new Date(), userDecisionsJson: { reason: input.reason ?? '' } } });
+        recordRegistrationAudit(tx, { orgId: ctx.orgId!, userId: ctx.userId, action: 'gateway.register-aborted', targetId: proposal.gatewayDeviceKey, metadata: { gatewayDeviceKey: proposal.gatewayDeviceKey, registrationSessionId: proposal.id, reason: input.reason ?? null } });
+      });
+      return { ok: true };
+    }),
+
+  listStuckRegistrations: orgProcedure
+    .input(z.object({ orgId: z.string().cuid(), siteGroupId: z.string().cuid() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.prisma.registrationProposal.findMany({ where: { state: 'PROPOSED', expiresAt: { gt: new Date() }, gateway: { siteGroupId: input.siteGroupId } }, orderBy: { createdAt: 'desc' } });
     }),
 });

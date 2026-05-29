@@ -1,0 +1,39 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`parseStatusOutput > parses golden sample snapshot 1`] = `
+{
+  "_unparsed": [],
+  "boardReportedUuid": "2C004A001351353230363438",
+  "boardType": "MAIN",
+  "bus485": {
+    "children": [
+      {
+        "raw": "0B0003000F5355533936302D",
+        "reportedTypeLabel": "DAEJAK_VM",
+      },
+    ],
+    "registered": 1,
+  },
+  "firmware": "DAEJAK_MAIN v1.2.0",
+  "ipAddress": "192.168.39.71",
+  "mqtt": {
+    "collectionAlign": "on",
+    "collectionPeriodSec": 600,
+    "edgeNodeId": "2C004A001351353230363438",
+    "groupId": "modules",
+  },
+  "mqttStatus": {
+    "broker": "mqtts://api.52-79-241-139.nip.io:8883",
+    "clientId": "2C004A001351353230363438",
+    "connected": "connected",
+    "port": 8883,
+    "subsSummary": "2 topic(s)",
+    "subscriptions": [
+      "modules/modules/NCMD/2C004A001351353230363438",
+      "modules/modules/DCMD/2C004A001351353230363438/+",
+    ],
+  },
+  "rtcTime": "2026-05-27 17:54:54",
+  "state": "NORMAL",
+}
+`;

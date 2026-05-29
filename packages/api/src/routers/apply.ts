@@ -7,6 +7,49 @@ import { synthesizePlan, type DaemonState } from '../lib/apply-planner';
 import { executeOp, pollReconcilerStatus } from '../lib/apply-executor';
 import type { OpResult } from '@controlai-web/shared-types';
 
+async function bindDeviceSiteRecursively(
+  prisma: typeof import('@controlai-web/db').prisma,
+  siteGroupId: string,
+  canvasNodeId: string,
+  newSiteId: string,
+): Promise<string[]> {
+  const root = await prisma.device.updateMany({
+    where: { siteGroupId, canvasNodeId },
+    data: { siteId: newSiteId },
+  });
+  if (root.count === 0) return [];
+
+  const affectedKeys: string[] = [];
+
+  const queue = (
+    await prisma.device.findMany({
+      where: { siteGroupId, canvasNodeId },
+      select: { deviceKey: true },
+    })
+  ).map((d) => d.deviceKey);
+
+  affectedKeys.push(...queue);
+
+  while (queue.length > 0) {
+    const parentDeviceKey = queue.shift();
+    if (!parentDeviceKey) continue;
+    const children = await prisma.device.findMany({
+      where: { siteGroupId, parentDeviceKey },
+      select: { deviceKey: true },
+    });
+    if (children.length === 0) continue;
+    const childKeys = children.map((child) => child.deviceKey);
+    await prisma.device.updateMany({
+      where: { siteGroupId, deviceKey: { in: childKeys } },
+      data: { siteId: newSiteId },
+    });
+    affectedKeys.push(...childKeys);
+    queue.push(...childKeys);
+  }
+
+  return affectedKeys;
+}
+
 /** In-memory plan cache keyed by planId with 10-min TTL. */
 const planCache = new Map<string, { plan: ReturnType<typeof synthesizePlan>; expiresAt: number }>();
 
@@ -137,6 +180,13 @@ export const applyRouter = router({
           controlaiSiteId: true,
         },
       });
+      const devices = await ctx.prisma.device.findMany({
+        where: { siteGroupId: input.siteGroupId },
+        select: { canvasNodeId: true, siteId: true },
+      });
+      const devicesByCanvasNodeId = new Map(
+        devices.map((device) => [device.canvasNodeId, { siteId: device.siteId }]),
+      );
 
       const plan = synthesizePlan(
         nodes,
@@ -144,6 +194,7 @@ export const applyRouter = router({
         daemonState,
         site?.controlaiTenantId ?? null,
         existingSites,
+        devicesByCanvasNodeId,
       );
 
       cachePlan(plan);
@@ -209,12 +260,20 @@ export const applyRouter = router({
           controlaiSiteId: true,
         },
       });
+      const devices = await ctx.prisma.device.findMany({
+        where: { siteGroupId: input.siteGroupId },
+        select: { canvasNodeId: true, siteId: true },
+      });
+      const devicesByCanvasNodeId = new Map(
+        devices.map((device) => [device.canvasNodeId, { siteId: device.siteId }]),
+      );
       const recomputedPlan = synthesizePlan(
         nodes,
         edges,
         daemonState,
         site?.controlaiTenantId ?? null,
         existingSites,
+        devicesByCanvasNodeId,
       );
 
       if (recomputedPlan.planHash !== plan.planHash) {
@@ -236,6 +295,130 @@ export const applyRouter = router({
         const op = plan.ops[i]!;
 
         opResults.push({ opId: op.id, type: op.type, status: 'running' });
+
+        if (op.type === 'bindDeviceSite' || op.type === 'bindDeviceSiteDescendants') {
+          opResults[opResults.length - 1] = { opId: op.id, type: op.type, status: 'success' };
+          continue;
+        }
+
+        if (op.type === 'configureDriver') {
+          // Pure DB op — persist driverId + driverConfig on the bound Site.
+          const body = op.body as { driverId?: string; driverConfig?: Record<string, unknown> };
+          const driverId = body.driverId ?? 'mqtt-driver';
+          const driverConfig = body.driverConfig ?? {};
+          try {
+            // Find Site bound to this broker canvas node and update.
+            const targetSite = await ctx.prisma.site.findFirst({
+              where: { siteGroupId: input.siteGroupId, canvasNodeId: op.nodeId ?? undefined },
+              select: { id: true },
+            });
+            if (targetSite) {
+              await ctx.prisma.site.update({
+                where: { id: targetSite.id },
+                data: { driverId, driverConfig: driverConfig as never },
+              });
+              await writeAudit(ctx.prisma, {
+                orgId: ctx.orgId,
+                userId: ctx.userId ?? null,
+                action: 'apply.configure-driver',
+                targetId: targetSite.id,
+                targetType: 'Site',
+                metadata: { driverId, driverConfig },
+              });
+            }
+            opResults[opResults.length - 1] = { opId: op.id, type: op.type, status: 'success' };
+          } catch (err) {
+            opResults[opResults.length - 1] = {
+              opId: op.id,
+              type: op.type,
+              status: 'failed',
+              errorDetail: err instanceof Error ? err.message : String(err),
+            };
+            success = false;
+            failedAt = i;
+            for (let j = i + 1; j < plan.ops.length; j++) {
+              opResults.push({ opId: plan.ops[j]!.id, type: plan.ops[j]!.type, status: 'pending' });
+            }
+            break;
+          }
+          continue;
+        }
+
+        if (op.type === 'migrateTopicSchema') {
+          const body = op.body as { mode?: string };
+          const mode = body.mode;
+          // Forward-only: legacy → dual → new
+          if (!mode || !['dual', 'new'].includes(mode)) {
+            opResults[opResults.length - 1] = {
+              opId: op.id,
+              type: op.type,
+              status: 'failed',
+              errorDetail: `Invalid topicSchemaMode for migration: ${mode}. Only 'dual' or 'new' are allowed.`,
+            };
+            success = false;
+            failedAt = i;
+            for (let j = i + 1; j < plan.ops.length; j++) {
+              opResults.push({ opId: plan.ops[j]!.id, type: plan.ops[j]!.type, status: 'pending' });
+            }
+            break;
+          }
+          try {
+            const sg = await ctx.prisma.siteGroup.findUnique({
+              where: { id: input.siteGroupId },
+              select: { topicSchemaMode: true },
+            });
+            const current = sg?.topicSchemaMode ?? 'legacy';
+            const forwardOk =
+              (current === 'legacy' && (mode === 'dual' || mode === 'new')) ||
+              (current === 'dual' && mode === 'new') ||
+              current === mode;
+            if (!forwardOk) {
+              throw new Error(
+                `Topic-schema mode transitions are forward-only: ${current} -> ${mode} not allowed`,
+              );
+            }
+            // DAEJAK guard: if 'new', refuse when any Gateway in SiteGroup has 24-hex clientId.
+            if (mode === 'new') {
+              const gws = await ctx.prisma.gateway.findMany({
+                where: { siteGroupId: input.siteGroupId },
+                select: { clientId: true },
+              });
+              const blocked = gws.find((g) => /^[0-9A-F]{24}$/.test(g.clientId));
+              if (blocked) {
+                throw new Error(
+                  `Cannot move to 'new' topic schema: DAEJAK gateway present (clientId=${blocked.clientId}).`,
+                );
+              }
+            }
+            await ctx.prisma.siteGroup.update({
+              where: { id: input.siteGroupId },
+              data: { topicSchemaMode: mode },
+            });
+            await writeAudit(ctx.prisma, {
+              orgId: ctx.orgId,
+              userId: ctx.userId ?? null,
+              action: 'apply.migrate-topic-schema',
+              targetId: input.siteGroupId,
+              targetType: 'SiteGroup',
+              metadata: { before: current, after: mode },
+            });
+            opResults[opResults.length - 1] = { opId: op.id, type: op.type, status: 'success' };
+          } catch (err) {
+            opResults[opResults.length - 1] = {
+              opId: op.id,
+              type: op.type,
+              status: 'failed',
+              errorDetail: err instanceof Error ? err.message : String(err),
+            };
+            success = false;
+            failedAt = i;
+            for (let j = i + 1; j < plan.ops.length; j++) {
+              opResults.push({ opId: plan.ops[j]!.id, type: plan.ops[j]!.type, status: 'pending' });
+            }
+            break;
+          }
+          continue;
+        }
 
         const { result, tenantId: newTenantId, siteId: newSiteId } = await executeOp(op, instance, {
           tenantId,
@@ -304,6 +487,25 @@ export const applyRouter = router({
             });
           } else {
             console.warn(`[apply.commit] tenant domain empty; skipping site tlsServername stamp (tenant=${tenantId})`);
+          }
+
+          if (canvasNodeId) {
+            const affectedDeviceKeys = await bindDeviceSiteRecursively(
+              ctx.prisma,
+              input.siteGroupId,
+              canvasNodeId,
+              siteId,
+            );
+            for (const deviceKey of affectedDeviceKeys) {
+              void writeAudit(ctx.prisma, {
+                orgId: ctx.orgId!,
+                userId: ctx.userId,
+                action: 'device.site-bound',
+                targetId: deviceKey,
+                targetType: 'Device',
+                metadata: { siteId, canvasNodeId },
+              });
+            }
           }
         }
 

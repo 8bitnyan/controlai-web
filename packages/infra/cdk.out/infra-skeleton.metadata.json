@@ -1,0 +1,68 @@
+{
+  "/infra-skeleton": [
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:6:1)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:7:11)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/infra-skeleton/BootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:7:5)"
+      ]
+    }
+  ],
+  "/infra-skeleton/CheckBootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CheckBootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:7:5)"
+      ]
+    }
+  ],
+  "/infra-skeleton/CDKMetadata/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CDKMetadata"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:7:5)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:7:11)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/infra-skeleton/CDKMetadata/Condition": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CDKMetadataAvailable"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in .pnpm...",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:7:5)",
+        "<anonymous> (/Users/8bitnyan/Documents/ThinkTank/controlai-web/packages/infra/bin/cdk.ts:7:11)",
+        "...node internals..."
+      ]
+    }
+  ]
+}

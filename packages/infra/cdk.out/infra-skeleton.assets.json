@@ -1,0 +1,20 @@
+{
+  "version": "53.0.0",
+  "files": {
+    "32ca02e329e78f5b3209bcd7dc16f884d2569e9f60c7ed0ee2fedcc547eb40c9": {
+      "displayName": "infra-skeleton Template",
+      "source": {
+        "path": "infra-skeleton.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "current_account-current_region-1dc65702": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}",
+          "objectKey": "32ca02e329e78f5b3209bcd7dc16f884d2569e9f60c7ed0ee2fedcc547eb40c9.json",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-${AWS::Region}"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

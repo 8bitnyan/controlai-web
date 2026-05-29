@@ -1,0 +1,98 @@
+{
+ "Resources": {
+  "DaemonsHostedZone281E15A6": {
+   "Type": "AWS::Route53::HostedZone",
+   "Properties": {
+    "Name": "daemons.controlai.io."
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-dns/DaemonsHostedZone/Resource"
+   }
+  },
+  "DaemonsWildcardCertificateB0AFA43D": {
+   "Type": "AWS::CertificateManager::Certificate",
+   "Properties": {
+    "DomainName": "*.daemons.controlai.io",
+    "DomainValidationOptions": [
+     {
+      "DomainName": "*.daemons.controlai.io",
+      "HostedZoneId": {
+       "Ref": "DaemonsHostedZone281E15A6"
+      }
+     }
+    ],
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "controlai-dns/DaemonsWildcardCertificate"
+     }
+    ],
+    "ValidationMethod": "DNS"
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-dns/DaemonsWildcardCertificate/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/02KMQ7CMAwA39I9MZVRxQO6MMPGgkziIrc0kRKXDlH+XlUMZTrd6RCwu0Db0Jqt85P9yAvKXclNhtb8LCkuyt0ZyjVmZf+IgU0/hMOqcZxUBnGkPFOgNyco/dH2/U9rrSZEzzDm0xcREKFtxixi0xJUZobbjxtaSU7/mgAAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-dns/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "ExportsOutputRefDaemonsWildcardCertificateB0AFA43DCEDD0231": {
+   "Value": {
+    "Ref": "DaemonsWildcardCertificateB0AFA43D"
+   },
+   "Export": {
+    "Name": "controlai-dns:ExportsOutputRefDaemonsWildcardCertificateB0AFA43DCEDD0231"
+   }
+  },
+  "ExportsOutputRefDaemonsHostedZone281E15A654E4696B": {
+   "Value": {
+    "Ref": "DaemonsHostedZone281E15A6"
+   },
+   "Export": {
+    "Name": "controlai-dns:ExportsOutputRefDaemonsHostedZone281E15A654E4696B"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

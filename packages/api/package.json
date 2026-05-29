@@ -16,7 +16,12 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@aws-sdk/client-ec2": "^3",
+    "@aws-sdk/client-ecs": "^3",
+    "@aws-sdk/client-secrets-manager": "^3",
+    "@aws-sdk/client-servicediscovery": "^3",
     "@controlai-web/db": "workspace:*",
+    "@controlai-web/runtime-drivers": "workspace:*",
     "@controlai-web/shared-types": "workspace:*",
     "@trpc/server": "^11.0.0",
     "better-auth": "^1.6.0",
@@ -25,6 +30,7 @@
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^2.1.0",
+    "aws-sdk-client-mock": "^4",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
   }

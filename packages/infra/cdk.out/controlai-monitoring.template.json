@@ -1,0 +1,209 @@
+{
+ "Resources": {
+  "DaemonAlertsTopic8850A540": {
+   "Type": "AWS::SNS::Topic",
+   "Properties": {
+    "TopicName": "controlai-daemons-alerts"
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-monitoring/DaemonAlertsTopic/Resource"
+   }
+  },
+  "DaemonAlertsTopicPolicy596D69A9": {
+   "Type": "AWS::SNS::TopicPolicy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sns:Publish",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "events.amazonaws.com"
+       },
+       "Resource": {
+        "Ref": "DaemonAlertsTopic8850A540"
+       },
+       "Sid": "0"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Topics": [
+     {
+      "Ref": "DaemonAlertsTopic8850A540"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-monitoring/DaemonAlertsTopic/Policy/Resource"
+   }
+  },
+  "ClusterHighCpuAlarm83651E3A": {
+   "Type": "AWS::CloudWatch::Alarm",
+   "Properties": {
+    "AlarmActions": [
+     {
+      "Ref": "DaemonAlertsTopic8850A540"
+     }
+    ],
+    "ComparisonOperator": "GreaterThanThreshold",
+    "DatapointsToAlarm": 2,
+    "Dimensions": [
+     {
+      "Name": "ClusterName",
+      "Value": {
+       "Fn::ImportValue": "controlai-ecs:ExportsOutputRefDaemonCluster70162C99C61B0006"
+      }
+     }
+    ],
+    "EvaluationPeriods": 2,
+    "MetricName": "CPUUtilization",
+    "Namespace": "AWS/ECS",
+    "Period": 300,
+    "Statistic": "Average",
+    "Threshold": 80
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-monitoring/ClusterHighCpuAlarm/Resource"
+   }
+  },
+  "ClusterHighMemoryAlarmBE54EDC6": {
+   "Type": "AWS::CloudWatch::Alarm",
+   "Properties": {
+    "AlarmActions": [
+     {
+      "Ref": "DaemonAlertsTopic8850A540"
+     }
+    ],
+    "ComparisonOperator": "GreaterThanThreshold",
+    "DatapointsToAlarm": 2,
+    "Dimensions": [
+     {
+      "Name": "ClusterName",
+      "Value": {
+       "Fn::ImportValue": "controlai-ecs:ExportsOutputRefDaemonCluster70162C99C61B0006"
+      }
+     }
+    ],
+    "EvaluationPeriods": 2,
+    "MetricName": "MemoryUtilization",
+    "Namespace": "AWS/ECS",
+    "Period": 300,
+    "Statistic": "Average",
+    "Threshold": 80
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-monitoring/ClusterHighMemoryAlarm/Resource"
+   }
+  },
+  "Alb5xxAlarm99BFF946": {
+   "Type": "AWS::CloudWatch::Alarm",
+   "Properties": {
+    "AlarmActions": [
+     {
+      "Ref": "DaemonAlertsTopic8850A540"
+     }
+    ],
+    "ComparisonOperator": "GreaterThanThreshold",
+    "Dimensions": [
+     {
+      "Name": "LoadBalancer",
+      "Value": {
+       "Fn::ImportValue": "controlai-ingress:ExportsOutputFnGetAttDaemonAlb8469D036LoadBalancerFullName010E1CBA"
+      }
+     }
+    ],
+    "EvaluationPeriods": 5,
+    "MetricName": "HTTPCode_ELB_5XX_Count",
+    "Namespace": "AWS/ApplicationELB",
+    "Period": 60,
+    "Statistic": "Sum",
+    "Threshold": 10
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-monitoring/Alb5xxAlarm/Resource"
+   }
+  },
+  "EcsDeploymentFailedRule00F5207C": {
+   "Type": "AWS::Events::Rule",
+   "Properties": {
+    "EventPattern": {
+     "source": [
+      "aws.ecs"
+     ],
+     "detail-type": [
+      "ECS Deployment State Change"
+     ],
+     "resources": [
+      {
+       "Fn::ImportValue": "controlai-ecs:ExportsOutputFnGetAttDaemonCluster70162C99Arn0AAA4084"
+      }
+     ],
+     "detail": {
+      "eventName": [
+       "SERVICE_DEPLOYMENT_FAILED"
+      ],
+      "deploymentState": [
+       "FAILED"
+      ]
+     }
+    },
+    "State": "ENABLED",
+    "Targets": [
+     {
+      "Arn": {
+       "Ref": "DaemonAlertsTopic8850A540"
+      },
+      "Id": "Target0"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-monitoring/EcsDeploymentFailedRule/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/z2KwQrCMBBEv6X3dC0L4ln8AaneJSYRt00T6SYNEvLvkga8zJt5DAIeTzB0MnGv9NxbekK+BalmIRM/MjuGfPcfUuLycq3sefWW1Pcv2yxCWR91kkG9IZ+tXJf62EsRZjMuMOQxWlN1ZSlFOK8NTHzYEAERhm5ion6NLtBiYGz8AYM9f+upAAAA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "controlai-monitoring/CDKMetadata/Default"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

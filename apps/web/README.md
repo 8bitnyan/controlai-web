@@ -27,3 +27,18 @@ over USB-CDC using the Web Serial API. No external tooling required.
   fresh user gesture on each session).
 
 See `openspec/specs/gateway-board-provisioning/` for the capability spec.
+
+## Instances
+
+ControlAI supports two ways to attach a daemon to your organization:
+
+- **BYO (Register existing)** — Run and manage the daemon on your own infrastructure (on-prem, air-gapped, custom setup). See [Instance BYO vs Managed](../../docs/instance-byo-vs-managed.md).
+- **Auto-provisioned (Managed)** — ControlAI provisions and manages the daemon for you with one click. See [Instance Provisioning](../../docs/instance-provisioning.md).
+
+## Canvas catalog
+
+See `docs/device-type-authoring.md` for manifest authoring.
+
+`listDeviceTypes()` returns the registered canvas catalog. To add a new device,
+add a manifest file under
+`packages/shared-types/src/device-types/manifests/<vendor>/<id>.ts`.

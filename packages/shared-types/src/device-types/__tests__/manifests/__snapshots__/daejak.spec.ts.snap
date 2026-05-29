@@ -1,0 +1,74 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`daejak manifests > registers 'daejak-main-v1' 1`] = `
+{
+  "category": "gateway",
+  "constraints": {
+    "minIntervalMs": 100,
+  },
+  "datasheet": {
+    "certifications": [],
+  },
+  "displayName": "DAEJAK MAIN v1",
+  "firmwareTypeIds": [
+    "DAEJAK_MAIN_V1",
+  ],
+  "id": "daejak-main-v1",
+  "manufacturer": "DAEJAK",
+  "model": "MAIN-V1",
+  "ports": [
+    {
+      "acceptsProtocols": [
+        "modbus-rtu",
+      ],
+      "direction": "in",
+      "id": "rs485-1",
+      "maxCount": 16,
+      "portType": "rs485-bus",
+    },
+  ],
+  "registrationHints": {
+    "expectedChildTypeIds": [],
+  },
+  "visual": {
+    "accentColor": "#2563eb",
+    "iconRef": "router",
+  },
+}
+`;
+
+exports[`daejak manifests > registers 'daejak-vm' 1`] = `
+{
+  "category": "sensor",
+  "constraints": {
+    "minIntervalMs": 100,
+  },
+  "datasheet": {
+    "certifications": [],
+  },
+  "defaultSignal": {
+    "format": "cbor",
+    "range": {
+      "max": 24,
+      "min": 0,
+    },
+    "rateMs": 1000,
+    "units": "V",
+  },
+  "displayName": "DAEJAK VM",
+  "firmwareTypeIds": [
+    "DAEJAK_VM",
+  ],
+  "id": "daejak-vm",
+  "manufacturer": "DAEJAK",
+  "model": "VM",
+  "ports": [],
+  "registrationHints": {
+    "expectedChildTypeIds": [],
+  },
+  "visual": {
+    "accentColor": "#0ea5e9",
+    "iconRef": "gauge",
+  },
+}
+`;

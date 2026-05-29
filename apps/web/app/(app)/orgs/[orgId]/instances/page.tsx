@@ -9,22 +9,54 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DeleteConfirmDialog } from '@/components/domain/delete-confirm-dialog';
-import { Server, Plus, Wifi, WifiOff, Activity } from 'lucide-react';
+import { ProvisionInstanceDialog } from '@/components/instances/provision-instance-dialog';
+import { Server, Plus, Wifi, WifiOff, Activity, Loader2, AlertTriangle } from 'lucide-react';
 
 const STATUS_CONFIG = {
   HEALTHY: { variant: 'success' as const, icon: Wifi, label: 'Healthy' },
   DEGRADED: { variant: 'warning' as const, icon: Activity, label: 'Degraded' },
   UNREACHABLE: { variant: 'destructive' as const, icon: WifiOff, label: 'Unreachable' },
   UNKNOWN: { variant: 'secondary' as const, icon: Activity, label: 'Unknown' },
+  PROVISIONING: { variant: 'warning' as const, icon: Loader2, label: 'Provisioning', spin: true },
+  PROVISION_FAILED: { variant: 'destructive' as const, icon: AlertTriangle, label: 'Failed' },
 } as const;
+
+type InstanceRow = {
+  id: string;
+  name: string;
+  baseURL: string;
+  status: keyof typeof STATUS_CONFIG;
+  lastSeenAt: string | null;
+  version: string | null;
+  capacityUsedMB: number | null;
+  capacityAllowedMB: number | null;
+  env?: 'prod' | 'staging' | 'dev' | null;
+  provisionProgress?: { stage: string; percent: number; log: Array<{ ts: string; message: string }> } | null;
+};
 
 export default function InstancesPage() {
   const { orgId } = useParams<{ orgId: string }>();
 
   const { data: instances, isLoading } = trpc.instance.list.useQuery({ orgId });
   const utils = trpc.useUtils();
+  const orgRole: 'OWNER' | null = 'OWNER';
+  const orgSlug = orgId;
+
+  const instancesWithEnv = (instances ?? []) as unknown as InstanceRow[];
+
+  const existingEnvs = instancesWithEnv
+    .filter((i) => i.env !== null)
+    .map((i) => i.env as 'prod' | 'staging' | 'dev');
 
   const deleteInstance = trpc.instance.delete.useMutation({
+    onSuccess: () => void utils.instance.list.invalidate({ orgId }),
+  });
+
+  const retryProvision = trpc.instance.retryProvision.useMutation({
+    onSuccess: () => void utils.instance.list.invalidate({ orgId }),
+  });
+
+  const deprovisionInstance = trpc.instance.deprovision.useMutation({
     onSuccess: () => void utils.instance.list.invalidate({ orgId }),
   });
 
@@ -35,12 +67,20 @@ export default function InstancesPage() {
           <Breadcrumb segments={[{ label: 'Instances' }]} />
           <h1 className="mt-1 text-2xl font-bold">Controlai Instances</h1>
         </div>
-        <Button asChild>
-          <Link href={`/orgs/${orgId}/instances/new`}>
-            <Plus className="mr-2 h-4 w-4" />
-            Register Instance
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <ProvisionInstanceDialog
+            orgId={orgId}
+            orgSlug={orgSlug}
+            existingEnvs={existingEnvs}
+            onProvisioned={() => void utils.instance.list.invalidate({ orgId })}
+          />
+          <Button asChild variant="outline">
+            <Link href={`/orgs/${orgId}/instances/new`}>
+              <Plus className="mr-2 h-4 w-4" />
+              Register existing daemon
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -57,7 +97,7 @@ export default function InstancesPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
-          {instances?.map((inst) => {
+          {instancesWithEnv.map((inst) => {
             const cfg = STATUS_CONFIG[inst.status] ?? STATUS_CONFIG.UNKNOWN;
             const StatusIcon = cfg.icon;
 
@@ -75,10 +115,50 @@ export default function InstancesPage() {
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant={cfg.variant} className="flex items-center gap-1">
-                        <StatusIcon className="h-3 w-3" />
-                        {cfg.label}
-                      </Badge>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge variant={cfg.variant} className="flex items-center gap-1">
+                          <StatusIcon className={'spin' in cfg && cfg.spin ? 'h-3 w-3 animate-spin' : 'h-3 w-3'} />
+                          {cfg.label}
+                        </Badge>
+                        {inst.status === 'PROVISIONING' && inst.provisionProgress && (
+                          <div className="flex w-40 flex-col gap-0.5">
+                            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                              <span className="truncate capitalize">{inst.provisionProgress.stage.replace(/_/g, ' ')}</span>
+                              <span className="tabular-nums">{inst.provisionProgress.percent}%</span>
+                            </div>
+                            <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+                              <div
+                                className="h-full rounded-full bg-primary transition-all duration-300"
+                                style={{ width: `${Math.max(0, Math.min(100, inst.provisionProgress.percent))}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {inst.status === 'PROVISION_FAILED' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => retryProvision.mutate({ orgId, instanceId: inst.id })}
+                          disabled={retryProvision.isPending}
+                        >
+                          Retry
+                        </Button>
+                      )}
+                      {orgRole === 'OWNER' && inst.env !== null && (
+                        <DeleteConfirmDialog
+                          resourceName={`${inst.name}. This will tear down the Fly.io daemon and cannot be undone.`}
+                          resourceType="managed daemon"
+                          onConfirm={() =>
+                            deprovisionInstance.mutateAsync({ instanceId: inst.id, orgId })
+                          }
+                          trigger={
+                            <Button variant="destructive" size="sm">
+                              Deprovision
+                            </Button>
+                          }
+                        />
+                      )}
                       <DeleteConfirmDialog
                         resourceName={inst.name}
                         resourceType="instance"
