@@ -597,7 +597,14 @@ export const applyRouter = router({
           } else {
           const certPem: string = cert;
           const keyPem: string = key;
-          const caPem: string = ca ?? cert;
+          // Do NOT fall back to cert as the CA — embedded TLS clients (board
+          // firmware) need the actual issuer CA to verify the server cert.
+          // If the daemon's issueCert response omits ca_pem, skip the auto-
+          // create entirely so we don't poison the Gateway row with a wrong CA.
+          if (!ca) {
+            console.warn('[apply.commit] issueCert response missing ca_pem; skipping gateway auto-create to avoid poisoning rootCa', { tenantId, siteId });
+          }
+          const caPem: string | null = ca;
           const gatewayNodes = nodes.filter((node) => String(node.data?.deviceTypeId ?? '').includes('gateway'));
           const sites = await ctx.prisma.site.findMany({ where: { siteGroupId: input.siteGroupId } });
           const siteByCanvasNode = new Map(sites.map((s) => [s.canvasNodeId, s]));
@@ -613,6 +620,11 @@ export const applyRouter = router({
               where: { siteGroupId: input.siteGroupId, canvasNodeId: gatewayNode.id },
               select: { deviceKey: true },
             });
+            if (!caPem) {
+              // Skip — see warning above; we refuse to write a Gateway row with a
+              // missing/poisoned CA because it breaks board TLS handshake.
+              continue;
+            }
             const gatewayData = {
               label: inferGatewayLabel(gatewayNode),
               kind: 'simulator',
