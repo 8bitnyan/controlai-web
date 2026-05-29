@@ -27,3 +27,4 @@ export * from './gateway';
 export * from './device-types';
 export * from './token-bucket';
 export * from './registration';
+export * from './telemetry';
