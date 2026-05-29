@@ -126,6 +126,30 @@ app.get('/gateways/:id/outbox', async (c) => {
   });
 });
 
+app.get('/sitegroups/:id/inbound', async (c) => {
+  const id = c.req.param('id');
+  const token = c.req.query('token');
+  if (!token) return c.text('Unauthorized', 401);
+  try {
+    await import('./jwt.js').then(({ verifyStreamToken }) => verifyStreamToken(token));
+  } catch {
+    return c.text('Unauthorized: invalid token', 401);
+  }
+  return honoStream(c, async (stream) => {
+    void stream.write(`data: ${JSON.stringify({ type: 'connected', siteGroupId: id })}\n\n`);
+    const onInbound = (evt: unknown) => {
+      void stream.write(`data: ${JSON.stringify(evt)}\n\n`);
+    };
+    simulatorEvents.on(`siteGroupInbound:${id}`, onInbound);
+    const keepAlive = setInterval(() => {
+      void stream.write(': keep-alive\n\n');
+    }, 30_000);
+    await new Promise<void>((resolve) => stream.onAbort(() => resolve()));
+    simulatorEvents.off(`siteGroupInbound:${id}`, onInbound);
+    clearInterval(keepAlive);
+  });
+});
+
 // ─── Health ────────────────────────────────────────────────────────────────────
 
 app.get('/health', (c) => c.json({ ok: true }));

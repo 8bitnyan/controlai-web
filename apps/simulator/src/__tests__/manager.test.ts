@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as managerModule from '../manager.js';
 import { resolveSensorRuntime } from '../manager.js';
+import { parseInboundEvent } from '../manager.js';
+import { encode } from 'cbor-x';
 import type { SensorConfig } from '../types.js';
 
 describe('resolveSensorRuntime', () => {
@@ -84,5 +86,14 @@ describe('reconcileSiteGroup', () => {
   it('halts publisher within one interval when simulationDesired flips false', async () => {
     const reconcileSiteGroup = Reflect.get(managerModule, 'reconcileSiteGroup');
     expect(typeof reconcileSiteGroup).toBe('function');
+  });
+});
+
+describe('parseInboundEvent', () => {
+  it('emits board source when clientId differs from gateway', () => {
+    const payload = encode({ readings: [{ sensorId: 's1', value: 1.23, ts: 1 }] });
+    const evt = parseInboundEvent({ topic: 'modules/tnt/NDATA/board-1', payload, siteGroupId: 'sg1', gatewayClientId: 'gw-aaa' });
+    expect(evt?.source).toBe('board');
+    expect(evt?.msgType).toBe('NDATA');
   });
 });

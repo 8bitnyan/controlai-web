@@ -5,19 +5,25 @@ import { prisma } from '@controlai-web/db';
 import { Counter } from 'prom-client';
 import { TokenBucket } from '@controlai-web/shared-types';
 import { decryptToken } from './crypto.js';
-import type { GatewayDTO, SensorConfig } from './types.js';
+import type { GatewayDTO, InboundEvent, SensorConfig } from './types.js';
 import { getDeviceType } from '@controlai-web/shared-types';
 import { topicFor, encodeNbirth, encodeNdata, encodeNdeath } from './cbor-codec.js';
-import { SignalGenerator } from './signal-generator.js';
+import { decode } from 'cbor-x';
+import { createGenerator, type RuntimeGenerator } from './generators/index.js';
 
 const SENSOR_TYPES = new Set(['temperature', 'pressure', 'humidity', 'vibration']);
+const PATTERNS = new Set(['tilt', 'vibration', 'crack-encoder', 'noise-meter', 'vibrating-wire', 'random-walk', 'random', 'sine']);
 function isSensorType(value: unknown): value is SensorConfig['type'] {
   return typeof value === 'string' && SENSOR_TYPES.has(value);
+}
+function isPattern(value: unknown): value is NonNullable<SensorConfig['pattern']> {
+  return typeof value === 'string' && PATTERNS.has(value);
 }
 
 export const logger = pino({ name: 'simulator-manager' });
 const reconcileMs = Number(process.env.SIM_RECONCILE_MS ?? '5000');
 const rateCap = Number(process.env.SIM_RATE_CAP ?? '1000');
+const tlsInsecure = process.env.SIM_TLS_INSECURE === 'true';
 const buckets = new Map<string, TokenBucket>();
 const siteGroupLoops = new Map<string, ReturnType<typeof setInterval>>();
 const simRateCapDelays = new Counter({
@@ -43,13 +49,17 @@ export interface GatewayOutboxEvent {
 interface GatewayRuntime {
   client: MqttClient;
   intervals: ReturnType<typeof setInterval>[];
-  generators: Map<string, SignalGenerator>;
+  generators: Map<string, RuntimeGenerator>;
   gatewayId: string;
   siteGroupId: string;
 }
 
 export const simulatorEvents = new EventEmitter();
 simulatorEvents.setMaxListeners(200);
+
+if (tlsInsecure) {
+  logger.warn('SIM_TLS_INSECURE=true (DEV ONLY): TLS hostname/certificate verification is disabled for MQTT connections');
+}
 
 /** Map<gatewayId, GatewayRuntime> */
 const runtimes = new Map<string, GatewayRuntime>();
@@ -88,6 +98,36 @@ function emitOutbox(evt: GatewayOutboxEvent): void {
   simulatorEvents.emit(`gatewayOutbox:${evt.gatewayId}`, evt);
 }
 
+export function parseInboundEvent(params: { topic: string; payload: Buffer; siteGroupId: string; gatewayClientId: string }): InboundEvent | null {
+  const parts = params.topic.split('/');
+  if (parts.length < 4 || parts[0] !== 'modules') return null;
+  const msgType = parts[2] ?? '';
+  const clientId = parts[3] ?? '';
+  if (!msgType || !clientId) return null;
+  const ts = Date.now();
+  let readings: Array<{ sensorId: string; value: number; ts: number }> | undefined;
+  let payloadSummary = msgType;
+  try {
+    const decoded = decode(params.payload) as Record<string, unknown>;
+    const rawReadings = Array.isArray(decoded?.readings) ? decoded.readings : [];
+    if (msgType === 'NDATA') {
+      readings = rawReadings.map((item) => {
+        const row = item as Record<string, unknown>;
+        const sensorId = typeof row.sensorId === 'string' ? row.sensorId : null;
+        const value = typeof row.value === 'number' ? row.value : null;
+        const readingTs = typeof row.ts === 'number' ? row.ts : ts;
+        return sensorId && value !== null ? { sensorId, value, ts: readingTs } : null;
+      }).filter((v): v is { sensorId: string; value: number; ts: number } => v !== null);
+      const head = readings.slice(0, 4).map((r) => `${r.sensorId}=${r.value.toFixed(3)}`).join(', ');
+      payloadSummary = `NDATA ${readings.length} readings${head ? `: ${head}` : ''}`.slice(0, 200);
+    } else if (msgType === 'NBIRTH') payloadSummary = `NBIRTH ${rawReadings.length} sensors`;
+    else if (msgType === 'NDEATH') payloadSummary = 'NDEATH';
+  } catch {
+    payloadSummary = `${msgType} (decode failed)`;
+  }
+  return { siteGroupId: params.siteGroupId, topic: params.topic, msgType, clientId, ts, payloadSummary, readings, source: clientId === params.gatewayClientId ? 'sim' : 'board' };
+}
+
 async function loadGateway(gatewayId: string): Promise<GatewayDTO & {
   rootCaPemEnc: string;
   clientCertPemEnc: string;
@@ -96,6 +136,7 @@ async function loadGateway(gatewayId: string): Promise<GatewayDTO & {
   const row = await prisma.gateway.findUniqueOrThrow({ where: { id: gatewayId } });
   return {
     id: row.id,
+    canvasNodeId: row.canvasNodeId,
     siteGroupId: row.siteGroupId,
     label: row.label,
     kind: row.kind as GatewayDTO['kind'],
@@ -164,7 +205,7 @@ export async function startGateway(gatewayId: string, sensorsOverride?: SensorCo
     ca: rootCaPem,
     cert: clientCertPem,
     key: clientKeyPem,
-    rejectUnauthorized: true,
+    rejectUnauthorized: !tlsInsecure,
     servername,
     // mqtt.js IClientOptions doesn't declare checkServerIdentity, but it forwards
     // unknown TLS options to tls.connect. Cast through unknown to bypass the lint.
@@ -181,9 +222,9 @@ export async function startGateway(gatewayId: string, sensorsOverride?: SensorCo
       : {}),
   });
 
-  const generators = new Map<string, SignalGenerator>();
+  const generators = new Map<string, RuntimeGenerator>();
   for (const sensor of sensors) {
-    generators.set(sensor.id, new SignalGenerator(sensor));
+    generators.set(sensor.id, createGenerator(sensor));
   }
 
   const intervals: ReturnType<typeof setInterval>[] = [];
@@ -208,6 +249,12 @@ export async function startGateway(gatewayId: string, sensorsOverride?: SensorCo
         payloadSummary: `NBIRTH ${sensors.length} sensors [${sensors.map((s) => s.id).join(',')}]`,
         ts: Date.now(),
       });
+
+      const inboundTopic = `modules/${gw.groupId}/+/+`;
+      client.subscribe(inboundTopic, { qos: 0 }, (err) => {
+        if (err) logger.warn({ gatewayId, err: err.message }, 'broker inbound subscribe failed');
+        else logger.info({ gatewayId, inboundTopic }, 'broker inbound subscribed');
+      });
     }
 
     // Start per-sensor publish intervals
@@ -225,18 +272,19 @@ export async function startGateway(gatewayId: string, sensorsOverride?: SensorCo
         }
 
         if (gw.mode === 'cbor-modules-cloud') {
-          const readings = [{ sensorId: sensor.id, value, ts }];
+          const values = Array.isArray(value) ? value : [value];
+          const readings = values.map((v, idx) => ({ sensorId: values.length > 1 ? `${sensor.id}-${idx + 1}` : sensor.id, value: v, ts }));
           const payload = encodeNdata(gw, readings);
           const topic = topicFor(gw, 'NDATA');
           client.publish(topic, payload, { qos: 0 });
           emitOutbox({
             gatewayId,
             topic,
-            payloadSummary: `NDATA ${sensor.id}=${value.toFixed(3)}`,
-            ts,
-            readings: [{ sensorId: sensor.id, value }],
-          });
-        } else {
+             payloadSummary: `NDATA ${sensor.id}=${values.map((v) => v.toFixed(3)).join(',')}`,
+             ts,
+             readings: readings.map((r) => ({ sensorId: r.sensorId, value: r.value })),
+           });
+         } else {
           // json mode
           const template = gw.jsonTopicTemplate ?? `gateways/${gw.clientId}/sensors/${sensor.id}`;
           const topic = template
@@ -247,15 +295,29 @@ export async function startGateway(gatewayId: string, sensorsOverride?: SensorCo
           emitOutbox({
             gatewayId,
             topic,
-            payloadSummary: JSON.stringify({ sensorId: sensor.id, value }).slice(0, 80),
-            ts,
-            readings: [{ sensorId: sensor.id, value }],
-          });
-        }
+             payloadSummary: JSON.stringify({ sensorId: sensor.id, value }).slice(0, 80),
+             ts,
+             readings: Array.isArray(value)
+               ? value.map((v, idx) => ({ sensorId: `${sensor.id}-${idx + 1}`, value: v }))
+               : [{ sensorId: sensor.id, value }],
+           });
+         }
         })();
       }, sensor.intervalMs);
       intervals.push(interval);
     }
+  });
+
+  client.on('message', (topic, payload) => {
+    const evt = parseInboundEvent({
+      topic,
+      payload,
+      siteGroupId: gw.siteGroupId,
+      gatewayClientId: gw.clientId,
+    });
+    if (!evt) return;
+    simulatorEvents.emit('siteGroupInbound', evt);
+    simulatorEvents.emit(`siteGroupInbound:${gw.siteGroupId}`, evt);
   });
 
   client.on('error', (err) => {
@@ -365,7 +427,7 @@ export async function reconcileSiteGroup(siteGroupId: string): Promise<void> {
         label: child.canvasNodeId,
         unit: typeof signal.unit === 'string' ? signal.unit : defaults?.units ?? 'raw',
         type: sensorType,
-        pattern: typeof signal.pattern === 'string' ? signal.pattern : 'random',
+        pattern: isPattern(signal.pattern) ? signal.pattern : 'random-walk',
         min: typeof signal.min === 'number' ? signal.min : 0,
         max: typeof signal.max === 'number' ? signal.max : 100,
         walkStep: typeof signal.walkStep === 'number' ? signal.walkStep : 1,
