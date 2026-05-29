@@ -31,6 +31,7 @@ export interface DaemonSite {
   broker?: { kind: string };
   ingest?: { direction: string; batch_size?: number };
   throughput?: string;
+  retentionPeriod?: string;
 }
 
 export interface DaemonState {
@@ -248,7 +249,28 @@ export function synthesizePlan(
     );
   }
 
-  // Step 2: Ingest config diffs
+  // Step 2: Site config diffs (broker/ingest)
+  for (const broker of brokerNodes) {
+    const brokerData = broker.data as { kind?: string };
+    const kind = brokerData.kind ?? 'mosquitto';
+    const boundExistingSite = existingSites.find((s) => s.canvasNodeId === broker.id);
+    const preferredDeviceSiteId =
+      devicesByCanvasNodeId?.get(broker.id)?.siteId ?? boundExistingSite?.deviceSiteId ?? null;
+    const existingSite =
+      boundExistingSite?.controlaiTenantId && preferredDeviceSiteId
+        ? daemonState.sites.find(
+            (s) => s.tenantId === boundExistingSite.controlaiTenantId && s.id === preferredDeviceSiteId,
+          )
+        : boundExistingSite?.controlaiTenantId && boundExistingSite.controlaiSiteId
+          ? daemonState.sites.find(
+              (s) => s.tenantId === boundExistingSite.controlaiTenantId && s.id === boundExistingSite.controlaiSiteId,
+            )
+          : null;
+    if (existingSite && (existingSite.broker?.kind ?? '').toLowerCase() !== kind.toLowerCase()) {
+      ops.push(makeOp('setBrokerKind', `Set broker → ${kind.toUpperCase()}`, `/v1/tenants/${existingSite.tenantId}/sites/${existingSite.id}`, 'PATCH', { broker_kind: kind }, broker.id));
+    }
+  }
+
   for (const ingest of ingestNodes) {
     const data = ingest.data as { direction?: string; batch_size?: number };
     const direction = data.direction ?? 'uni';
@@ -287,8 +309,8 @@ export function synthesizePlan(
       ) {
         ops.push(
           makeOp(
-            'updateIngest',
-            `Update ingest config (direction: ${direction})`,
+            'setIngestMode',
+            `Set ingest mode → ${direction}`,
             `/v1/tenants/${existingSite.tenantId}/sites/${existingSite.id}`,
             'PATCH',
             { direction },
@@ -301,20 +323,26 @@ export function synthesizePlan(
 
   // Step 3: TimescaleDB retention diffs
   for (const tsdb of timescaleNodes) {
-    const data = tsdb.data as { retention?: string };
-    const retention = data.retention ?? '1d';
-
-    if (resolvedTenantId && daemonState.tenants.length > 0) {
-      ops.push(
-        makeOp(
-          'updateTsdb',
-          `Update TimescaleDB retention to ${retention}`,
-          `/v1/tenants/${tenantPathSeg}`,
-          'PATCH',
-          { retention },
-          tsdb.id,
-        ),
-      );
+    const data = tsdb.data as { retentionDays?: string; retention?: string };
+    const retention = data.retentionDays ?? data.retention ?? '1d';
+    const brokerEdge = edges.find((e) => e.target === tsdb.id);
+    const connectedBroker = brokerEdge ? brokerNodes.find((n) => n.id === brokerEdge.source) : null;
+    if (!connectedBroker) continue;
+    const boundExistingSite = existingSites.find((s) => s.canvasNodeId === connectedBroker.id);
+    const preferredDeviceSiteId =
+      devicesByCanvasNodeId?.get(connectedBroker.id)?.siteId ?? boundExistingSite?.deviceSiteId ?? null;
+    const existingSite =
+      boundExistingSite?.controlaiTenantId && preferredDeviceSiteId
+        ? daemonState.sites.find(
+            (s) => s.tenantId === boundExistingSite.controlaiTenantId && s.id === preferredDeviceSiteId,
+          )
+        : boundExistingSite?.controlaiTenantId && boundExistingSite.controlaiSiteId
+          ? daemonState.sites.find(
+              (s) => s.tenantId === boundExistingSite.controlaiTenantId && s.id === boundExistingSite.controlaiSiteId,
+            )
+          : null;
+    if (existingSite && (existingSite.retentionPeriod ?? '') !== retention) {
+      ops.push(makeOp('setRetentionDays', `Set retention → ${retention.replace('d', ' days')}`, `/v1/tenants/${existingSite.tenantId}/sites/${existingSite.id}`, 'PATCH', { retention_period: retention }, tsdb.id));
     }
   }
 

@@ -9,23 +9,51 @@ This guide helps you understand the differences and choose which model fits your
 
 ## Quick Comparison
 
-| Aspect | BYO (Register) | Managed (Provision) |
-| --- | --- | --- |
-| **Who starts the daemon** | You (manual setup) | ControlAI (one click) |
-| **Infrastructure owner** | You | ControlAI (via AWS ECS-on-EC2) |
-| **Daemon bearer token** | You generate and manage | Auto-generated, encrypted at rest, never shown in plain text |
-| **Token display** | You paste into form during setup | Never displayed; stored encrypted |
-| **URL format** | Any HTTPS URL you provide | Auto-derived: `https://<orgSlug>-<env>.daemons.controlai.io` |
-| **URL control** | You own the domain | Immutable ControlAI domain |
-| **Organization slug** | Used only for org URL; no constraints | Must match strict regex `/^[a-z][a-z0-9-]{1,63}$/` and is immutable |
-| **`env` field** | Not used (NULL in DB) | Required: one of `prod`, `staging`, or `dev` |
-| **Uniqueness** | Multiple daemons per org OK | One daemon per `(org, env)` pair only |
-| **Stuck provisioning recovery** | N/A — re-run registration | Click "Retry Provision" in UI |
-| **Deprovision** | `instance.delete()` (you delete your own daemon) | `instance.deprovision()` (ControlAI tears down the container) |
-| **Auto-cleanup of failed rows** | No — you must manually delete | Yes (24 hours) |
-| **Audience** | On-prem, air-gapped, custom infra | Managed-tier customers, fast onboarding, cloud-native |
+| Aspect | Sandbox (Default) | BYO (Register) | Managed (Provision) |
+| --- | --- | --- | --- |
+| **Who starts the daemon** | ControlAI (pre-deployed) | You (manual setup) | ControlAI (one click) |
+| **Infrastructure owner** | ControlAI (shared EC2) | You | ControlAI (via AWS ECS-on-EC2) |
+| **Daemon bearer token** | Fixed per org at signup | You generate and manage | Auto-generated, encrypted at rest, never shown in plain text |
+| **Token display** | Encrypted in DB; never shown | You paste into form during setup | Never displayed; stored encrypted |
+| **URL format** | Fixed: `https://default.daemons.controlai.io` | Any HTTPS URL you provide | Auto-derived: `https://<orgSlug>-<env>.daemons.controlai.io` |
+| **URL control** | None; immutable shared URL | You own the domain | Immutable ControlAI domain |
+| **Multitenancy** | Shared tenant per org + factory-qa-unclaimed | Separate daemon per org | Separate daemon per org |
+| **Synthetic signals** | ✅ Yes (5 generators: tilt, vibration, noise-meter, etc.) | ❌ No | ❌ No |
+| **Setup time** | Instant (automatic at signup) | Manual (30 min–2 hours) | 1–2 clicks, 30–60 seconds |
+| **Cost** | Free (operator-maintained) | Your infra cost | Managed-tier subscription |
+| **SLA & Uptime** | Best-effort; no SLA | Your responsibility | Managed by ControlAI |
+| **Uniqueness** | One shared daemon per org | Multiple daemons per org OK | One daemon per `(org, env)` pair only |
+| **Reset semantics** | Per-org tenant only (wipe & reapply canvas) | Per-daemon (you manage reset) | Per-daemon (you manage reset) |
+| **Audience** | All orgs; testing & prototyping | On-prem, air-gapped, custom infra | Managed-tier customers, fast onboarding, cloud-native |
 
 ## Detailed Comparison
+
+### Sandbox (Default Daemon)
+
+**What is it?** Every organization automatically gets a singleton instance pointing to a shared, pre-deployed EC2 daemon at `default.daemons.controlai.io`. No setup or provisioning needed — it's ready to use immediately at signup.
+
+**Best for:** 
+- ✅ Testing and prototyping the full pipeline (broker → ingest → TSDB → dashboard) before hardware arrives.
+- ✅ Learning ControlAI with synthetic signal generators (no real hardware needed).
+- ✅ Sandbox use cases where data loss is acceptable and SLA is not required.
+- ✅ Factory QA workflow (boards land in `factory-qa-unclaimed` for visibility).
+
+**Key Features:**
+- **Instant:** No provisioning; ready at signup.
+- **Synthetic signals:** 5 built-in generators (tilt, vibration, crack-encoder, noise-meter, vibrating-wire) for testing without hardware.
+- **Per-org tenant isolation:** Your canvas only affects your org's tenant slice; other orgs unaffected.
+- **Reset semantics:** Apply wipes and reconfigures only your tenant (no manual teardown).
+- **Mixed real + synthetic:** Drag real factory boards + synthetic nodes onto the same canvas.
+
+**Limitations:**
+- **Shared infrastructure:** No per-org SLA; subject to maintenance.
+- **Fixed URL:** Cannot customize domain.
+- **Limited retention:** 7–30 days TSDB retention (configurable but no advanced tuning).
+- **Single region:** No failover; if daemon goes down, sandbox is unavailable.
+
+**Next Steps:** When you're ready for production, graduate to **Managed (Provision)** for dedicated infrastructure and SLA.
+
+---
 
 ### Setup Complexity
 
@@ -107,6 +135,21 @@ This guide helps you understand the differences and choose which model fits your
 - You cannot deprovision if projects are still attached; delete projects first.
 - Failed provisions are auto-deleted after 24 hours without manual intervention.
 
+## When to Choose Sandbox (Default Daemon)
+
+Choose **Sandbox** if:
+
+- ✅ You're **new to ControlAI** and want to test the pipeline without any provisioning.
+- ✅ You want **synthetic signal generators** to test without real hardware.
+- ✅ You're in **early prototyping** and expect high iteration (reset is simple).
+- ✅ You're **shipping factory boards** and want to see them land in `/admin/unclaimed-boards`.
+- ✅ You want to **mix real + synthetic nodes** on one canvas.
+- ✅ You **don't need an SLA** (sandbox mode assumes data-loss is acceptable).
+
+**Important:** This is the default tier. All organizations get it automatically. You cannot disable or opt out of the default daemon.
+
+---
+
 ## When to Choose BYO
 
 Choose **BYO (Bring Your Own)** if:
@@ -122,6 +165,8 @@ Choose **BYO (Bring Your Own)** if:
 
 Choose **Managed (Provision)** if:
 
+- ✅ You've **tested your pipeline in the sandbox** and are ready for production.
+- ✅ You want **dedicated infrastructure per organization** (not shared).
 - ✅ You want **zero-touch daemon deployment** — one click and you're done.
 - ✅ You prefer **ControlAI to manage infrastructure** for you.
 - ✅ You're OK with **ControlAI's domain** (`*.daemons.controlai.io`).
@@ -129,7 +174,7 @@ Choose **Managed (Provision)** if:
 - ✅ You want **one daemon per environment** (prod, staging, dev).
 - ✅ You want **automatic cleanup** of failed provisions.
 - ✅ You're a **managed-tier customer** and want a turnkey solution.
-- ✅ You're in the **early stages** and want to get up and running fast.
+- ✅ You want **SLA and uptime guarantees** (managed tier includes this).
 
 ## Migration Between Models
 
@@ -184,6 +229,14 @@ BYO rows (where `env IS NULL`) are exempt from this index and can coexist with M
 
 ## FAQ
 
+**Q: Do I have to use the Sandbox (default daemon)?**
+
+A: The default daemon is automatically created for every organization at signup. You cannot disable it, but you can ignore it and provision a Managed or BYO daemon instead. All three tiers can coexist in the same organization (though most users stick with one).
+
+**Q: Can I use Sandbox for production?**
+
+A: Not recommended. The sandbox daemon is shared, has no SLA, and data loss is acceptable by design. For production use, graduate to **Managed (Provision)** for dedicated infrastructure and uptime guarantees.
+
 **Q: Can I have both a BYO and Managed daemon in the same org?**
 
 A: Yes. BYO rows are exempt from the collision check, so you can run a BYO daemon alongside one Managed daemon per environment. This is useful during migration.
@@ -206,6 +259,9 @@ A: The system will reject the deprovision request and list the attached projects
 
 ## See Also
 
+- [Default Daemon Deployment Guide](default-daemon-deployment.md) — Operator guide for the shared sandbox daemon.
 - [Instance Provisioning Guide](instance-provisioning.md) — Detailed instructions for provisioning Managed daemons.
 - [BYO Registration](register-flow.md) — How to register a BYO daemon.
-- OpenSpec: [add-instance-auto-provisioning](../openspec/changes/add-instance-auto-provisioning/proposal.md) — Full technical specification.
+- [Admin: Unclaimed Boards](admin-unclaimed-boards.md) — How to view factory boards in the sandbox.
+- OpenSpec: [add-instance-auto-provisioning](../openspec/changes/add-instance-auto-provisioning/proposal.md) — Full technical specification for Managed provisioning.
+- OpenSpec: [add-default-daemon-sandbox](../openspec/changes/add-default-daemon-sandbox/proposal.md) — Full technical specification for the default daemon.

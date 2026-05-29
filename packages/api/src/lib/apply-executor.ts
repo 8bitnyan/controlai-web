@@ -16,6 +16,13 @@ export interface ExecuteOpOptions {
   siteId?: string | null;
 }
 
+function clampDaemonBody(body: unknown): unknown {
+  if (body === undefined) return undefined;
+  const json = JSON.stringify(body);
+  if (json.length <= 2048) return body;
+  return json.slice(0, 2048);
+}
+
 /**
  * Replace path placeholders :tenantId / :siteId with resolved IDs.
  */
@@ -48,11 +55,20 @@ export async function executeOp(
     let tenantId = opts.tenantId;
     let siteId = opts.siteId;
 
-    if (op.type === 'createTenant' && typeof data?.id === 'string') {
-      tenantId = data.id;
+    if (op.type === 'createTenant') {
+      const id = (data?.id ?? data?.ID) as string | undefined;
+      if (typeof id === 'string') tenantId = id;
     }
-    if (op.type === 'createSite' && typeof data?.id === 'string') {
-      siteId = data.id;
+    if (op.type === 'createSite') {
+      const id = (data?.id ?? data?.ID) as string | undefined;
+      if (typeof id === 'string') siteId = id;
+      if (!siteId) {
+        console.warn('[apply.executeOp] createSite succeeded but site id missing', {
+          opId: op.id,
+          path,
+          body: data,
+        });
+      }
     }
 
     return {
@@ -60,6 +76,7 @@ export async function executeOp(
         opId: op.id,
         type: op.type,
         status: 'success',
+        daemonResponseBody: clampDaemonBody(data),
       },
       tenantId: tenantId ?? undefined,
       siteId: siteId ?? undefined,
@@ -67,17 +84,29 @@ export async function executeOp(
   } catch (err) {
     if (err instanceof DaemonError) {
       // 409 on create ops = idempotent success
-      if (err.statusCode === 409 && (op.type === 'createTenant' || op.type === 'createSite')) {
+      if (err.statusCode === 409 && (op.type === 'createTenant' || op.type === 'createSite' || op.type === 'setBrokerKind' || op.type === 'setRetentionDays' || op.type === 'setIngestMode')) {
         // Try to parse id from body for downstream ops
         let tenantId = opts.tenantId;
         let siteId = opts.siteId;
         try {
           const body = JSON.parse(err.body) as Record<string, unknown>;
-          if (op.type === 'createTenant' && typeof body?.id === 'string') {
-            tenantId = body.id;
+          if (op.type === 'createTenant') {
+            const id = (body?.id ?? body?.ID) as string | undefined;
+            if (typeof id === 'string') tenantId = id;
+            // Fall back: daemon 409 error format → {"error":"tenant \"tnt_xxx\" already exists..."}
+            if (!tenantId && typeof body?.error === 'string') {
+              const m = body.error.match(/"(tnt_[A-Za-z0-9_.\-]+)"/);
+              if (m) tenantId = m[1];
+            }
           }
-          if (op.type === 'createSite' && typeof body?.id === 'string') {
-            siteId = body.id;
+          if (op.type === 'createSite') {
+            const id = (body?.id ?? body?.ID) as string | undefined;
+            if (typeof id === 'string') siteId = id;
+            // Fall back: daemon 409 error format → {"error":"site \"ste_xxx\" already exists..."}
+            if (!siteId && typeof body?.error === 'string') {
+              const m = body.error.match(/"(ste_[A-Za-z0-9_.\-]+)"/);
+              if (m) siteId = m[1];
+            }
           }
         } catch {
           // ignore parse errors
@@ -87,6 +116,7 @@ export async function executeOp(
             opId: op.id,
             type: op.type,
             status: 'success',
+            daemonResponseBody: err.body.slice(0, 2048),
           },
           tenantId: tenantId ?? undefined,
           siteId: siteId ?? undefined,

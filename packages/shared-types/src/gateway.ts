@@ -19,6 +19,7 @@ export interface SensorConfig {
 export interface GatewayDTO {
   id: string;
   siteGroupId: string;
+  canvasNodeId: string | null;
   label: string;
   kind: GatewayKind;
   mode: GatewayMode;

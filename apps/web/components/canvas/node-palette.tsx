@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import React from 'react';
 import * as Icons from 'lucide-react';
 import { listDeviceTypes, LEGACY_TYPE_MAP } from '@controlai-web/shared-types';
@@ -14,7 +14,16 @@ export function NodePalette() {
   const [active, setActive] = useState<(typeof tabs)[number]>('sensor');
   const all = listDeviceTypes();
   const key = `controlai:palette:recent:${orgId}`;
-  const recent = useMemo(() => { try { return orgId ? (JSON.parse(localStorage.getItem(key) ?? '[]') as string[]) : []; } catch { return []; } }, [key, orgId]);
+  // Read localStorage in useEffect only to avoid SSR/CSR hydration mismatch.
+  const [recent, setRecent] = useState<string[]>([]);
+  useEffect(() => {
+    if (!orgId) return;
+    try {
+      setRecent(JSON.parse(localStorage.getItem(key) ?? '[]') as string[]);
+    } catch {
+      setRecent([]);
+    }
+  }, [key, orgId]);
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const source = q ? all : all.filter((m) => m.category === active);
@@ -24,7 +33,11 @@ export function NodePalette() {
     event.dataTransfer.setData('application/reactflow-devicetypeid', deviceTypeId);
     if (category in LEGACY_TYPE_MAP) event.dataTransfer.setData('application/reactflow-nodetype', category);
     event.dataTransfer.effectAllowed = 'move';
-    if (orgId) localStorage.setItem(key, JSON.stringify([deviceTypeId, ...recent.filter((r) => r !== deviceTypeId)].slice(0, 8)));
+    if (orgId) {
+      const next = [deviceTypeId, ...recent.filter((r) => r !== deviceTypeId)].slice(0, 8);
+      localStorage.setItem(key, JSON.stringify(next));
+      setRecent(next);
+    }
   }
 
   return (

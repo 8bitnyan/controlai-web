@@ -13,6 +13,9 @@ export const OP_TYPES = [
   'bindDeviceSiteDescendants',
   'configureDriver',
   'migrateTopicSchema',
+  'setBrokerKind',
+  'setRetentionDays',
+  'setIngestMode',
 ] as const;
 
 export const BrokerDriverIdSchema = z.string().regex(/^[a-z][a-z0-9-]*$/, 'broker-driver id must be lowercase dash-separated');
@@ -40,6 +43,7 @@ export const OpResultSchema = z.object({
   status: z.enum(['pending', 'running', 'success', 'failed']),
   errorDetail: z.string().optional(), // daemon response body, up to 2 KB
   daemonStatusCode: z.number().optional(),
+  daemonResponseBody: z.unknown().optional(),
 });
 
 export type OpResult = z.infer<typeof OpResultSchema>;

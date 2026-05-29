@@ -55,6 +55,10 @@ pnpm dev
 
 See [`apps/web/.env.example`](apps/web/.env.example) for all required and optional env vars.
 
+Notable vars for default daemon bootstrap:
+- `DEFAULT_DAEMON_BASE_URL=https://default.daemons.controlai.io` — shared default-daemon HTTPS base URL (set per-environment).
+- `DEFAULT_DAEMON_BEARER_TOKEN=` — bearer token for the shared default daemon (encrypted at rest in the DB; required for org bootstrap).
+
 ## Scripts
 
 | Command | Description |

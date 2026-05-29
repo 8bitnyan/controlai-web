@@ -2,6 +2,7 @@ import { TRPCError } from '@trpc/server';
 import { router, orgProcedure, ownerAdminProcedure } from '../trpc';
 import { writeAudit } from '../lib/audit-writer';
 import { encryptToken, decryptToken } from '../lib/crypto';
+import { bootstrapDefaultInstance, DefaultDaemonEnvMissingError } from '../lib/bootstrap-default-instance';
 import { checkDaemonHealth, DaemonError } from '../lib/daemon-client';
 import { z } from 'zod';
 import {
@@ -19,6 +20,18 @@ import { getProvisioner } from '../lib/instance-provisioner';
 import { provisionTask } from '../lib/provision-task';
 
 export const instanceRouter = router({
+  bootstrapDefault: ownerAdminProcedure
+    .input(z.object({ orgId: z.string().cuid() }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        return await bootstrapDefaultInstance(ctx.prisma, input.orgId, ctx.userId!);
+      } catch (err) {
+        if (err instanceof DefaultDaemonEnvMissingError) {
+          throw new TRPCError({ code: 'PRECONDITION_FAILED', message: err.message });
+        }
+        throw err;
+      }
+    }),
   /**
    * Get a single instance by id. Token is NOT returned.
    */
@@ -50,10 +63,10 @@ export const instanceRouter = router({
    * List instances in org. Token is NOT returned.
    */
   list: orgProcedure
-    .input(ListInstancesSchema)
+    .input(ListInstancesSchema.extend({ includeLegacy: z.boolean().optional() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.controlaiInstance.findMany({
-        where: { orgId: input.orgId },
+        where: { orgId: input.orgId, ...(input.includeLegacy ? {} : { legacy: false }) },
         select: {
           id: true,
           name: true,

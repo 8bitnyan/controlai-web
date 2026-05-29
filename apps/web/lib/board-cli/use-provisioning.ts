@@ -11,11 +11,17 @@ import {
   BOARD_CLOSE_TIMEOUT_MS,
   BOARD_OPEN_SETTLE_DELAY_MS,
   BOARD_INTER_CHUNK_DELAY_MS,
+  BOARD_POST_CHUNK_OPEN_DELAY_MS,
+  BOARD_POST_CHUNK_CLOSE_DELAY_MS,
+  BOARD_INTER_COMMAND_DELAY_MS,
+  BOARD_PRE_REBOOT_DELAY_MS,
   BOARD_CHUNKED_SUCCESS_REGEX,
   BOARD_DEFAULT_FAILURE_REGEX,
   buildSingleCommandLine,
   type BoardCliCommand,
 } from '../../../../packages/api/src/lib/board-cli-spec';
+
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 import { CliSession, CliTimeoutError } from './cli-session';
 import {
   getSerialPortAdapter,
@@ -169,10 +175,19 @@ export function useProvisioning(gatewayId: string, orgId: string): {
       dispatch({ type: 'DEVICE_INFO_READ', deviceSerial });
       completedRef.current.push('READING_DEVICE_INFO');
 
-      for (const cmd of BOARD_PROVISION_SEQUENCE) {
+      for (let seqIndex = 0; seqIndex < BOARD_PROVISION_SEQUENCE.length; seqIndex += 1) {
+        const cmd = BOARD_PROVISION_SEQUENCE[seqIndex]!;
         const stepName = mapItemToStep(cmd.itemId);
         currentStep = stepName;
         dispatch({ type: 'ITEM_STARTED', step: stepName });
+
+        // Inter-command buffer: give the firmware CLI time to fully drain stdout
+        // and re-emit the `CLI>` prompt before the next command is fired.
+        // Skipped before the very first command in the sequence (status/stop already
+        // ran their own command above and left the prompt idle).
+        if (seqIndex > 0) {
+          await delay(BOARD_INTER_COMMAND_DELAY_MS);
+        }
 
         if (cmd.kind === 'single') {
           const value = cmd.itemId === 'group_id' ? bundle.groupId : bundle.endpointURL;
@@ -194,11 +209,14 @@ export function useProvisioning(gatewayId: string, orgId: string): {
             failureRegex: BOARD_DEFAULT_FAILURE_REGEX,
           });
 
+          // Let firmware allocate its capture buffer before streaming hex.
+          await delay(BOARD_POST_CHUNK_OPEN_DELAY_MS);
+
           for (let index = 0; index < hex.length; index += 1) {
             await session.writeLine(hex[index]!);
             dispatch({ type: 'CHUNK_PROGRESS', sent: index + 1, total: hex.length, itemId: cmd.itemId });
             if (index < hex.length - 1) {
-              await new Promise<void>((resolve) => setTimeout(resolve, BOARD_INTER_CHUNK_DELAY_MS));
+              await delay(BOARD_INTER_CHUNK_DELAY_MS);
             }
           }
 
@@ -207,7 +225,12 @@ export function useProvisioning(gatewayId: string, orgId: string): {
             successRegex: BOARD_CHUNKED_SUCCESS_REGEX,
             failureRegex: BOARD_DEFAULT_FAILURE_REGEX,
           });
+
+          // Wait for the flash write to commit before moving on.
+          await delay(BOARD_POST_CHUNK_CLOSE_DELAY_MS);
         } else {
+          // `reboot` — give the last flash commit time to settle before resetting.
+          await delay(BOARD_PRE_REBOOT_DELAY_MS);
           await session.writeLine(cmd.command);
           dispatch({ type: 'REBOOT_SENT' });
           completedRef.current.push('REBOOTING');

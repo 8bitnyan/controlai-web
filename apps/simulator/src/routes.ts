@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { stream as honoStream } from 'hono/streaming';
+import { streamSSE } from 'hono/streaming';
 import pino from 'pino';
 import { startGateway, stopGateway, gatewayStatus, simulatorEvents } from './manager.js';
 import { requireToken } from './jwt.js';
@@ -10,8 +10,9 @@ import { sitegroupSimulationRoute } from './routes/sitegroup-simulation.js';
 const logger = pino({ name: 'simulator-routes' });
 
 export const app = new Hono();
-app.route('/', sitegroupSimulationRoute);
 
+// CORS must be registered BEFORE any route so EventSource (cross-origin from
+// the Next.js dev server on :3000) gets `Access-Control-Allow-Origin` headers.
 app.use(
   '*',
   cors({
@@ -19,6 +20,8 @@ app.use(
     credentials: true,
   }),
 );
+
+app.route('/', sitegroupSimulationRoute);
 
 // ─── Gateway control ──────────────────────────────────────────────────────────
 
@@ -64,18 +67,18 @@ app.get('/events', (c) => {
     return c.text('Unauthorized', 401);
   }
 
-  return honoStream(c, async (stream) => {
-    stream.write('data: {"type":"connected"}\n\n');
+  return streamSSE(c, async (stream) => {
+    await stream.writeSSE({ data: JSON.stringify({ type: 'connected' }) });
 
     const onStatus = (evt: GatewayStatusEvent) => {
-      void stream.write(`data: ${JSON.stringify({ type: 'status', ...evt })}\n\n`);
+      void stream.writeSSE({ data: JSON.stringify({ type: 'status', ...evt }) });
     };
 
     simulatorEvents.on('gatewayStatus', onStatus);
 
-    // Keep alive every 30s
+    // Keep alive every 30s (SSE comment line)
     const keepAlive = setInterval(() => {
-      void stream.write(': keep-alive\n\n');
+      void stream.writeSSE({ data: '', event: 'ping' });
     }, 30_000);
 
     await new Promise<void>((resolve) => {
@@ -103,17 +106,17 @@ app.get('/gateways/:id/outbox', async (c) => {
     return c.text('Unauthorized: invalid token', 401);
   }
 
-  return honoStream(c, async (stream) => {
-    void stream.write(`data: ${JSON.stringify({ type: 'connected', gatewayId: id })}\n\n`);
+  return streamSSE(c, async (stream) => {
+    await stream.writeSSE({ data: JSON.stringify({ type: 'connected', gatewayId: id }) });
 
     const onOutbox = (evt: GatewayOutboxEvent) => {
-      void stream.write(`data: ${JSON.stringify({ type: 'outbox', ...evt })}\n\n`);
+      void stream.writeSSE({ data: JSON.stringify({ type: 'outbox', ...evt }) });
     };
 
     simulatorEvents.on(`gatewayOutbox:${id}`, onOutbox);
 
     const keepAlive = setInterval(() => {
-      void stream.write(': keep-alive\n\n');
+      void stream.writeSSE({ data: '', event: 'ping' });
     }, 30_000);
 
     // Hold the SSE open until the client disconnects or the stream is aborted.
@@ -135,14 +138,14 @@ app.get('/sitegroups/:id/inbound', async (c) => {
   } catch {
     return c.text('Unauthorized: invalid token', 401);
   }
-  return honoStream(c, async (stream) => {
-    void stream.write(`data: ${JSON.stringify({ type: 'connected', siteGroupId: id })}\n\n`);
+  return streamSSE(c, async (stream) => {
+    await stream.writeSSE({ data: JSON.stringify({ type: 'connected', siteGroupId: id }) });
     const onInbound = (evt: unknown) => {
-      void stream.write(`data: ${JSON.stringify(evt)}\n\n`);
+      void stream.writeSSE({ data: JSON.stringify(evt) });
     };
     simulatorEvents.on(`siteGroupInbound:${id}`, onInbound);
     const keepAlive = setInterval(() => {
-      void stream.write(': keep-alive\n\n');
+      void stream.writeSSE({ data: '', event: 'ping' });
     }, 30_000);
     await new Promise<void>((resolve) => stream.onAbort(() => resolve()));
     simulatorEvents.off(`siteGroupInbound:${id}`, onInbound);

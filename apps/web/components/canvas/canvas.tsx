@@ -110,10 +110,13 @@ export function Canvas({ orgId, projectId, siteGroupId, siteId }: CanvasProps) {
   }, [devices]);
 
   useEffect(() => {
-    if (nodeConfig) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      loadConfig((nodeConfig.nodes as any[]) ?? [], (nodeConfig.edges as any[]) ?? []);
-    }
+    if (!nodeConfig) return;
+    // Guard: never clobber in-progress unsaved edits with a refetched server snapshot
+    // (e.g. tRPC refetchOnWindowFocus, query invalidation). The user's local edits win
+    // until they're saved; the next manual/auto save will reconcile to the server.
+    if (useCanvasStore.getState().isDirty) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    loadConfig((nodeConfig.nodes as any[]) ?? [], (nodeConfig.edges as any[]) ?? []);
     // loadConfig is stable from Zustand create(); omit to prevent deep type inference
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodeConfig]);
@@ -132,30 +135,37 @@ export function Canvas({ orgId, projectId, siteGroupId, siteId }: CanvasProps) {
     if (!isDirty) return;
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
+      // Read latest nodes/edges via getState() so live-simulation SSE telemetry
+      // (which mutates the `nodes` array reference on every frame) does NOT
+      // reset this debounce. Keeping `nodes`/`edges` out of the dep array is
+      // intentional — otherwise the timer is cleared faster than 30s and
+      // autosave never fires while simulation is running.
+      const { nodes: latestNodes, edges: latestEdges } = useCanvasStore.getState();
       saveMutation.mutate({
         orgId,
         siteGroupId,
-        nodes: nodes as unknown as unknown[],
-        edges: edges as unknown[],
+        nodes: latestNodes as unknown as unknown[],
+        edges: latestEdges as unknown[],
       });
     }, 30_000);
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     };
-  }, [isDirty, nodes, edges, orgId, siteGroupId, saveMutation]);
+  }, [isDirty, orgId, siteGroupId, saveMutation]);
 
   const handleManualSave = useCallback(() => {
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
       saveTimeoutRef.current = null;
     }
+    const { nodes: latestNodes, edges: latestEdges } = useCanvasStore.getState();
     saveMutation.mutate({
       orgId,
       siteGroupId,
-      nodes: nodes as unknown as unknown[],
-      edges: edges as unknown[],
+      nodes: latestNodes as unknown as unknown[],
+      edges: latestEdges as unknown[],
     });
-  }, [nodes, edges, orgId, siteGroupId, saveMutation]);
+  }, [orgId, siteGroupId, saveMutation]);
 
   // SSE telemetry
   useSiteGroupInbound({
@@ -163,6 +173,7 @@ export function Canvas({ orgId, projectId, siteGroupId, siteId }: CanvasProps) {
     siteGroupId,
     enabled: true,
     onMessage: (msg) => {
+      if (!msg || typeof msg.clientId !== 'string') return; // skip framing/connected
       const gatewayNode = nodes.find((n) => n.type === 'gateway' && n.id.startsWith(msg.clientId.replace(/^gw-/, '')));
       if (gatewayNode) {
         updateNodeTelemetry(gatewayNode.id, 'ok', 0);

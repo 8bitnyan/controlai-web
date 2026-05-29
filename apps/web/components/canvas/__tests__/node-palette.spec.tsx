@@ -15,7 +15,7 @@ describe('NodePalette', () => {
     expect(screen.getByRole('button', { name: 'ingest' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'tsdb' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'monitoring' })).toBeInTheDocument();
-    expect(screen.getByLabelText(/Drag to add Generic Sensor node/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Drag to add Generic Sensor node$/i)).toBeInTheDocument();
   });
 
   it('filters by search text for daejak manifests', () => {
@@ -23,13 +23,13 @@ describe('NodePalette', () => {
     fireEvent.change(screen.getByPlaceholderText(/Search device types/i), { target: { value: 'daejak' } });
     expect(screen.getByLabelText(/Daejak Main/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Daejak VM/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText(/Generic Sensor/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Drag to add Generic Sensor node$/i)).not.toBeInTheDocument();
   });
 
   it('writes recent key to localStorage on drag start', () => {
     const setItem = vi.spyOn(Storage.prototype, 'setItem');
     render(<NodePalette />);
-    const sensor = screen.getByLabelText(/Generic Sensor/i);
+    const sensor = screen.getByLabelText(/Drag to add Generic Sensor node$/i);
     fireEvent.dragStart(sensor, {
       dataTransfer: { setData: vi.fn(), effectAllowed: 'move' },
     });

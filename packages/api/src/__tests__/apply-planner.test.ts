@@ -75,7 +75,7 @@ describe('synthesizePlan', () => {
     expect(opTypes).not.toContain('createSite');
   });
 
-  it('tsdb manifest category node branches to updateTsdb ops', () => {
+  it('tsdb manifest category node branches to setRetentionDays ops', () => {
     const nodes = [
       {
         id: 'tsdb-1',
@@ -88,14 +88,16 @@ describe('synthesizePlan', () => {
       sites: [],
     };
 
-    const plan = synthesizePlan(nodes, [], daemonState, 'tenant-1');
+    const edges = [{ id: 'e1', source: 'broker-1', target: 'tsdb-1' }];
+    const existingSites = [{ canvasNodeId: 'broker-1', controlaiTenantId: 'tenant-1', controlaiSiteId: 'site-1' }];
+    const plan = synthesizePlan([{ id: 'broker-1', type: 'broker', data: { deviceTypeId: 'core-generic-broker' } }, ...nodes], edges, { ...daemonState, sites: [{ id: 'site-1', tenantId: 'tenant-1', retentionPeriod: '1d' }] }, 'tenant-1', existingSites);
 
-    const updateTsdb = plan.ops.find((o) => o.type === 'updateTsdb');
-    expect(updateTsdb).toBeTruthy();
-    expect(updateTsdb!.body).toMatchObject({ retention: '7d' });
+    const op = plan.ops.find((o) => o.type === 'setRetentionDays');
+    expect(op).toBeTruthy();
+    expect(op!.body).toMatchObject({ retention_period: '7d' });
   });
 
-  it('ingest manifest category node branches to updateIngest ops', () => {
+  it('ingest manifest category node branches to setIngestMode ops', () => {
     const nodes = [
       {
         id: 'broker-1',
@@ -120,7 +122,7 @@ describe('synthesizePlan', () => {
     ];
 
     const plan = synthesizePlan(nodes, edges, daemonState, 'tenant-1', existingSites);
-    const updateIngest = plan.ops.find((o) => o.type === 'updateIngest');
+    const updateIngest = plan.ops.find((o) => o.type === 'setIngestMode');
 
     expect(updateIngest).toBeTruthy();
     expect(updateIngest!.body).toMatchObject({ direction: 'bi' });

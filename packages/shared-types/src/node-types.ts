@@ -50,6 +50,8 @@ export const IngestDataSchema = z.object({
   label: z.string().default('Ingest'),
   direction: z.enum(['uni', 'bi']).default('uni'),
   batch_size: z.number().int().min(1).max(10000).default(100),
+  max_throughput_per_sec: z.number().int().min(1).max(100000).default(1000),
+  drop_policy: z.enum(['drop-newest', 'drop-oldest', 'backpressure']).default('drop-newest'),
   status: z.enum(['UNKNOWN', 'HEALTHY', 'DEGRADED', 'UNREACHABLE']).default('UNKNOWN'),
   msgPerSec: z.number().default(0),
 });
@@ -57,7 +59,8 @@ export const IngestDataSchema = z.object({
 export const TimescaleDBDataSchema = z.object({
   type: z.literal('timescaledb'),
   label: z.string().default('TimescaleDB'),
-  retention: z.enum(['1m', '1h', '1d', '7d', '30d']).default('1d'),
+  retention: z.enum(['1m', '1h', '1d', '7d', '30d', '90d', '180d', '365d']).default('7d'),
+  max_size_gb: z.number().int().min(1).max(10000).default(10),
   status: z.enum(['UNKNOWN', 'HEALTHY', 'DEGRADED', 'UNREACHABLE']).default('UNKNOWN'),
   msgPerSec: z.number().default(0),
 });

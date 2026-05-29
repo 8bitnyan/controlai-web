@@ -30,7 +30,7 @@ export default function ProjectsPage() {
   const [createError, setCreateError] = useState<string | null>(null);
 
   const { data: projects, isLoading: projectsLoading } = trpc.project.list.useQuery({ orgId });
-  const { data: instances } = trpc.instance.list.useQuery({ orgId });
+  const { data: instances } = trpc.instance.list.useQuery({ orgId }) as { data: Array<{ id: string; name: string; status: string }> | undefined };
   const utils = trpc.useUtils();
 
   const createProject = trpc.project.create.useMutation({

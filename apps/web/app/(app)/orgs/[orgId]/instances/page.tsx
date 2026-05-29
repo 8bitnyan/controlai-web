@@ -37,12 +37,15 @@ type InstanceRow = {
 export default function InstancesPage() {
   const { orgId } = useParams<{ orgId: string }>();
 
-  const { data: instances, isLoading } = trpc.instance.list.useQuery({ orgId });
+  const { data: instances, isLoading } = trpc.instance.list.useQuery({ orgId, includeLegacy: true });
   const utils = trpc.useUtils();
   const orgRole: 'OWNER' | null = 'OWNER';
   const orgSlug = orgId;
 
-  const instancesWithEnv = (instances ?? []) as unknown as InstanceRow[];
+  const instancesWithEnv = (instances ?? []) as unknown as (InstanceRow & { legacy?: boolean })[];
+  const activeInstances = instancesWithEnv.filter((i) => !i.legacy);
+  const legacyInstances = instancesWithEnv.filter((i) => i.legacy);
+  const hasDefaultInstance = activeInstances.length > 0;
 
   const existingEnvs = instancesWithEnv
     .filter((i) => i.env !== null)
@@ -66,14 +69,17 @@ export default function InstancesPage() {
         <div>
           <Breadcrumb segments={[{ label: 'Instances' }]} />
           <h1 className="mt-1 text-2xl font-bold">Controlai Instances</h1>
+          {hasDefaultInstance && <Badge variant="success" className="mt-2">Sandbox daemon: HEALTHY (default)</Badge>}
         </div>
         <div className="flex items-center gap-2">
-          <ProvisionInstanceDialog
-            orgId={orgId}
-            orgSlug={orgSlug}
-            existingEnvs={existingEnvs}
-            onProvisioned={() => void utils.instance.list.invalidate({ orgId })}
-          />
+          {!hasDefaultInstance && (
+            <ProvisionInstanceDialog
+              orgId={orgId}
+              orgSlug={orgSlug}
+              existingEnvs={existingEnvs}
+              onProvisioned={() => void utils.instance.list.invalidate({ orgId, includeLegacy: true })}
+            />
+          )}
           <Button asChild variant="outline">
             <Link href={`/orgs/${orgId}/instances/new`}>
               <Plus className="mr-2 h-4 w-4" />
@@ -87,7 +93,7 @@ export default function InstancesPage() {
         <div className="grid gap-4 sm:grid-cols-2">
           {[...Array(2)].map((_, i) => <Skeleton key={i} className="h-36 rounded-lg" />)}
         </div>
-      ) : instances?.length === 0 ? (
+      ) : activeInstances.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16 text-center">
           <Server className="mb-3 h-10 w-10 text-muted-foreground" />
           <p className="font-medium">No instances registered</p>
@@ -96,8 +102,9 @@ export default function InstancesPage() {
           </p>
         </div>
       ) : (
+        <>
         <div className="grid gap-4 sm:grid-cols-2">
-          {instancesWithEnv.map((inst) => {
+          {activeInstances.map((inst) => {
             const cfg = STATUS_CONFIG[inst.status] ?? STATUS_CONFIG.UNKNOWN;
             const StatusIcon = cfg.icon;
 
@@ -194,6 +201,20 @@ export default function InstancesPage() {
             );
           })}
         </div>
+        {legacyInstances.length > 0 && (
+          <details className="mt-4 rounded-lg border p-3">
+            <summary className="cursor-pointer text-sm font-medium">Legacy instances ({legacyInstances.length})</summary>
+            <div className="mt-2 space-y-2 text-xs text-muted-foreground">
+              {legacyInstances.map((inst) => (
+                <div key={inst.id} className="flex items-center gap-2">
+                  <span>{inst.name}</span>
+                  <Badge variant="outline">legacy</Badge>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+        </>
       )}
     </div>
   );

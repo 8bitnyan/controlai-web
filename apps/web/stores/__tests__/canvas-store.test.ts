@@ -8,6 +8,7 @@ const makeDevice = (overrides: Partial<DeviceRow> = {}): DeviceRow => ({
   shadowUuid: 'shadow_1',
   simulationDesired: true,
   config: {},
+  telemetry: [],
   ...overrides,
 });
 

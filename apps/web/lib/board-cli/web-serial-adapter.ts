@@ -5,7 +5,7 @@ function getNavigatorSerial(): Serial {
     throw new Error('Web Serial API not available in this browser');
   }
 
-  return navigator.serial;
+  return navigator.serial as Serial;
 }
 
 function formatPortDisplayName(port: SerialPort): string {

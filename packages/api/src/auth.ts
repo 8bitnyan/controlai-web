@@ -2,6 +2,7 @@ import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { organization } from 'better-auth/plugins';
 import { prisma } from '@controlai-web/db';
+import { bootstrapDefaultInstance } from './lib/bootstrap-default-instance';
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -37,6 +38,21 @@ export const auth = betterAuth({
       allowUserToCreateOrganization: true,
       organizationLimit: 5,
       membershipLimit: 100,
+      organizationHooks: {
+        afterCreateOrganization: async ({ organization: org, user }) => {
+          // Best-effort: failure to bootstrap the default daemon must not
+          // block organization creation. Errors are logged for operator triage.
+          try {
+            await bootstrapDefaultInstance(prisma, org.id, user.id);
+          } catch (error) {
+            console.error('[auth] bootstrapDefaultInstance failed', {
+              orgId: org.id,
+              userId: user.id,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        },
+      },
     }),
   ],
 

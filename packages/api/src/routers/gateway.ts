@@ -85,10 +85,12 @@ function toDTO(row: {
   rootCaPemEnc: string | null;
   clientCertPemEnc: string | null;
   clientKeyPemEnc: string | null;
+  canvasNodeId?: string | null;
 }): GatewayDTO {
   return {
     id: row.id,
     siteGroupId: row.siteGroupId,
+    canvasNodeId: row.canvasNodeId ?? null,
     label: row.label,
     kind: row.kind as GatewayDTO['kind'],
     mode: row.mode as GatewayDTO['mode'],
@@ -108,6 +110,18 @@ function toDTO(row: {
 }
 
 export const gatewayRouter = router({
+  byCanvasNode: orgProcedure
+    .input(z.object({ orgId: z.string().cuid(), siteGroupId: z.string().cuid(), canvasNodeId: z.string().min(1) }))
+    .query(async ({ ctx, input }) => {
+      const row = await ctx.prisma.gateway.findFirst({
+        where: {
+          siteGroupId: input.siteGroupId,
+          canvasNodeId: input.canvasNodeId,
+          siteGroup: { project: { orgId: ctx.orgId! } },
+        },
+      });
+      return row ? toDTO(row) : null;
+    }),
   /** List all gateways for a siteGroup. */
   list: orgProcedure
     .input(z.object({ orgId: z.string().cuid(), siteGroupId: z.string().cuid() }))
@@ -471,6 +485,82 @@ export const gatewayRouter = router({
       return {
         fingerprint: certResp.fingerprint,
         not_after: certResp.not_after,
+      };
+    }),
+
+  getProvisioningPayload: orgProcedure
+    .input(z.object({ orgId: z.string().cuid(), gatewayId: z.string().cuid() }))
+    .query(async ({ ctx, input }) => {
+      const gw = await ctx.prisma.gateway.findFirst({
+        where: { id: input.gatewayId, siteGroup: { project: { orgId: ctx.orgId! } } },
+      });
+      if (!gw) throw new TRPCError({ code: 'NOT_FOUND' });
+
+      const site = await ctx.prisma.site.findFirst({
+        where: { siteGroupId: gw.siteGroupId, siteGroup: { project: { orgId: ctx.orgId! } } },
+        include: { siteGroup: { include: { project: { include: { instance: true } } } } },
+      });
+      if (!site || !site.controlaiTenantId || !site.controlaiSiteId) {
+        throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'No provisioned site found for this gateway' });
+      }
+
+      const hasPem =
+        !!gw.rootCaPemEnc &&
+        !!gw.clientCertPemEnc &&
+        !!gw.clientKeyPemEnc &&
+        decryptToken(gw.rootCaPemEnc).trim().length > 0 &&
+        decryptToken(gw.clientCertPemEnc).trim().length > 0 &&
+        decryptToken(gw.clientKeyPemEnc).trim().length > 0;
+
+      if (!hasPem) {
+        interface PkiCertResponse {
+          cert_pem: string;
+          key_pem: string;
+          fingerprint: string;
+          not_after: string;
+          ca_pem?: string;
+        }
+
+        const pkiPath = `/v1/tenants/${site.controlaiTenantId}/sites/${site.controlaiSiteId}/pki/certs`;
+        const certResp = await callDaemon<PkiCertResponse>(site.siteGroup.project.instance, pkiPath, {
+          method: 'POST',
+          body: JSON.stringify({ gateway: gw.groupId }),
+        });
+        if (!certResp.cert_pem || !certResp.key_pem) {
+          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Daemon did not return cert_pem/key_pem' });
+        }
+        let rootCaPem = certResp.ca_pem ?? '';
+        if (!rootCaPem) {
+          try {
+            const caResp = await callDaemon<{ ca_pem: string }>(site.siteGroup.project.instance, `/v1/tenants/${site.controlaiTenantId}/pki/ca`);
+            rootCaPem = caResp.ca_pem;
+          } catch {
+            rootCaPem = '';
+          }
+        }
+        await ctx.prisma.gateway.update({
+          where: { id: gw.id },
+          data: {
+            rootCaPemEnc: encryptToken(rootCaPem),
+            clientCertPemEnc: encryptToken(certResp.cert_pem),
+            clientKeyPemEnc: encryptToken(certResp.key_pem),
+          },
+        });
+        return {
+          groupId: gw.groupId,
+          endpointURL: gw.endpointURL,
+          caPem: rootCaPem,
+          certPem: certResp.cert_pem,
+          keyPem: certResp.key_pem,
+        };
+      }
+
+      return {
+        groupId: gw.groupId,
+        endpointURL: gw.endpointURL,
+        caPem: decryptToken(gw.rootCaPemEnc!),
+        certPem: decryptToken(gw.clientCertPemEnc!),
+        keyPem: decryptToken(gw.clientKeyPemEnc!),
       };
     }),
 

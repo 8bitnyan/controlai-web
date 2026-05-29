@@ -18,6 +18,7 @@ describe('POST /sitegroups/:siteGroupId/simulation', () => {
   beforeEach(() => {
     reconcileSiteGroup.mockClear();
     process.env.SIMULATOR_SHARED_TOKEN = 'shared-token';
+    process.env.SIMULATOR_API_TOKEN = 'api-token';
   });
 
   it('returns 401 on invalid token', async () => {
@@ -29,6 +30,16 @@ describe('POST /sitegroups/:siteGroupId/simulation', () => {
 
     expect(res.status).toBe(401);
     expect(reconcileSiteGroup).not.toHaveBeenCalled();
+  });
+
+  it('accepts Authorization: Bearer <SIMULATOR_API_TOKEN>', async () => {
+    const res = await app.request('/sitegroups/sg-bearer/simulation', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', Authorization: 'Bearer api-token' },
+      body: JSON.stringify({ desired: true }),
+    });
+    expect(res.status).toBe(200);
+    expect(reconcileSiteGroup).toHaveBeenCalledWith('sg-bearer');
   });
 
   it('calls reconcileSiteGroup when desired=true', async () => {

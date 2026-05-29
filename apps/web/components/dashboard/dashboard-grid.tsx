@@ -47,8 +47,24 @@ export function DashboardGrid({
   // Initialise from server
   useEffect(() => {
     if (dashboard && !loaded) {
-      const raw = dashboard.layout as unknown as PersistedLayout[];
-      setItems(Array.isArray(raw) ? raw : []);
+      const raw = dashboard.layout as unknown as Array<WidgetConfig | PersistedLayout>;
+      const wrapped: PersistedLayout[] = Array.isArray(raw)
+        ? raw.map((entry, i) => {
+            // Backwards-compat: persisted layout is `WidgetConfig[]` (no wrapper).
+            // Re-wrap into PersistedLayout with a default grid layout.
+            if (entry && typeof entry === 'object' && 'widget' in entry && 'layout' in entry) {
+              return entry as PersistedLayout;
+            }
+            const widget = entry as WidgetConfig;
+            const defaultW = widget?.type === 'sensor-io-stream' ? 12 : 4;
+            const defaultH = widget?.type === 'sensor-io-stream' ? 8 : 4;
+            return {
+              widget,
+              layout: { i: widget.id, x: (i % 4) * 3, y: Infinity, w: defaultW, h: defaultH },
+            };
+          }).filter((p) => p.widget && p.widget.id)
+        : [];
+      setItems(wrapped);
       setLoaded(true);
     } else if (dashboard === null && !loaded) {
       setLoaded(true);

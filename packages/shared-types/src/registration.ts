@@ -36,3 +36,12 @@ export type MatchPlan = {
   unknownTypes: DiscoveredChild[];
   gatewayMatch: { boardReportedUuid: string };
 };
+
+export const DEVICE_CONNECTION_RULES: Record<string, { allowedParentDeviceTypeIds?: string[]; allowSelfChain?: boolean; allowedParentCategory?: 'gateway' }> = {
+  'core-generic-noise-meter': { allowedParentDeviceTypeIds: ['core-generic-sensor-input'] },
+  'core-generic-tilt-linear': { allowSelfChain: true, allowedParentCategory: 'gateway' },
+  'core-generic-sensor-input': { allowedParentCategory: 'gateway' },
+  'core-generic-vibration-tilt-standalone': { allowedParentCategory: 'gateway' },
+  'core-generic-control-485x2': { allowedParentCategory: 'gateway' },
+  'core-generic-vibrating-wire-sensor': { allowedParentCategory: 'gateway' },
+};

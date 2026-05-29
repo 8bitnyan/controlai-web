@@ -12,6 +12,7 @@ import { telemetryRouter } from './routers/telemetry';
 import { dashboardRouter } from './routers/dashboard';
 import { gatewayRouter } from './routers/gateway';
 import { deviceRouter } from './routers/device';
+import { adminRouter } from './routers/admin';
 
 export const appRouter = router({
   org: orgRouter,
@@ -27,6 +28,7 @@ export const appRouter = router({
   dashboard: dashboardRouter,
   gateway: gatewayRouter,
   device: deviceRouter,
+  admin: adminRouter,
 });
 
 export type AppRouter = typeof appRouter;

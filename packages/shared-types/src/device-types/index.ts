@@ -1,6 +1,13 @@
 import './manifests/core/generic-broker';
 import './manifests/core/generic-gateway';
+import './manifests/core/generic-main-gateway';
 import './manifests/core/generic-ingest';
+import './manifests/core/generic-sensor-input';
+import './manifests/core/generic-tilt-linear';
+import './manifests/core/generic-vibration-tilt-standalone';
+import './manifests/core/generic-control-485x2';
+import './manifests/core/generic-vibrating-wire-sensor';
+import './manifests/core/generic-noise-meter';
 import './manifests/core/generic-monitoring';
 import './manifests/core/generic-sensor';
 import './manifests/core/generic-tsdb';

@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -21,6 +22,13 @@ interface ApplyModalProps {
 }
 
 type ModalStep = 'preview' | 'confirm' | 'applying' | 'done';
+
+function formatPreviewDescription(type: string, description: string) {
+  if (type === 'setBrokerKind' || type === 'setRetentionDays' || type === 'setIngestMode') {
+    return description;
+  }
+  return description;
+}
 
 export function ApplyModal({ open, onClose, orgId, siteGroupId }: ApplyModalProps) {
   const [step, setStep] = useState<ModalStep>('preview');
@@ -109,7 +117,7 @@ export function ApplyModal({ open, onClose, orgId, siteGroupId }: ApplyModalProp
           <DialogTitle>Apply Pipeline Configuration</DialogTitle>
         </DialogHeader>
 
-        <div className="min-h-[200px]">
+        <div className="min-h-[200px] min-w-0 overflow-hidden">
           {/* Loading / preview step */}
           {step === 'preview' && (
             <div className="flex items-center justify-center py-12 gap-3 text-muted-foreground">
@@ -138,10 +146,16 @@ export function ApplyModal({ open, onClose, orgId, siteGroupId }: ApplyModalProp
                     type: op.type,
                     description:
                       op.type === 'createSite'
-                        ? `🆕 ${op.description} — Will provision new site${op.nodeId ? ` (node ${op.nodeId.slice(0, 8)}…)` : ''}`
+                        ? `🆕 ${op.description}`
                         : op.type === 'updateSite'
-                          ? `🔄 ${op.description} — Update existing site`
-                          : op.description,
+                          ? `🔄 ${op.description}`
+                          : formatPreviewDescription(op.type, op.description),
+                    note:
+                      op.type === 'createSite'
+                        ? `Will provision new site${op.nodeId ? ` (node ${op.nodeId.slice(0, 8)}…)` : ''}`
+                        : op.type === 'updateSite'
+                          ? 'Update existing site'
+                          : undefined,
                     status: 'pending' as const,
                   }))} />
                 </>
@@ -226,6 +240,7 @@ interface OpListItem {
   opId: string;
   type: string;
   description: string;
+  note?: string;
   status: 'pending' | 'running' | 'success' | 'failed';
   errorDetail?: string;
 }
@@ -239,8 +254,13 @@ function OpList({ ops }: { ops: OpListItem[] }) {
             <span className="text-xs text-muted-foreground w-5 text-right">{idx + 1}.</span>
             <StatusIcon status={op.status} />
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium truncate">{op.description}</div>
+              <div className="text-sm font-medium break-words">{op.description}</div>
               <div className="text-xs text-muted-foreground">{op.type}</div>
+              {op.note && (
+                <div className="mt-1 inline-block rounded border border-yellow-300 bg-yellow-50 px-1.5 py-0.5 text-[11px] text-muted-foreground break-words max-w-full">
+                  {op.note}
+                </div>
+              )}
             </div>
             <StatusBadge status={op.status} />
           </div>

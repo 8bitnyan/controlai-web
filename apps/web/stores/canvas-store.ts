@@ -403,13 +403,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
       return node;
     });
+    // Preserve `lastSaved` if it already exists — loadConfig may be called after a
+    // successful save (e.g. on remount with cached query data) and resetting it to
+    // null would lie to the user about save state.
+    const prevLastSaved = get().lastSaved;
     set({
       nodes: hydratedNodes,
       edges,
       past: [],
       future: [],
       isDirty: false,
-      lastSaved: null,
+      lastSaved: prevLastSaved,
       canUndo: false,
       canRedo: false,
     });

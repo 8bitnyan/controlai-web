@@ -132,16 +132,18 @@ export const deviceRouter = router({
       });
 
       let simulatorContact: 'ok' | 'failed' = 'ok';
-      const simulatorUrl = process.env.SIMULATOR_URL ?? 'http://localhost:3030';
+      const simulatorUrl = process.env.SIMULATOR_INTERNAL_URL ?? 'http://localhost:4001';
+      const simulatorApiToken = process.env.SIMULATOR_API_TOKEN ?? '';
       try {
-        await fetch(`${simulatorUrl}/sitegroups/${input.siteGroupId}/simulation`, {
+        const res = await fetch(`${simulatorUrl}/sitegroups/${input.siteGroupId}/simulation`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-Sim-Token': process.env.SIMULATOR_SHARED_TOKEN ?? '',
+            ...(simulatorApiToken ? { Authorization: `Bearer ${simulatorApiToken}` } : {}),
           },
           body: JSON.stringify({ desired: input.desired }),
         });
+        if (!res.ok) simulatorContact = 'failed';
       } catch {
         simulatorContact = 'failed';
       }

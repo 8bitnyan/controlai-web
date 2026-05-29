@@ -38,7 +38,7 @@ describe('OrphanNode + migrate dialog', () => {
 
   it('selecting a manifest calls store.replaceDeviceType', async () => {
     render(<MigrateDeviceTypeDialog open onClose={() => {}} nodeId="n1" />);
-    fireEvent.click(await screen.findByRole('button', { name: /Generic Sensor/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /core-generic-sensor(?!-)/i }));
     await waitFor(() => {
       expect(replaceDeviceType).toHaveBeenCalledWith('n1', 'core-generic-sensor');
     });

@@ -136,4 +136,27 @@ describe('instance router', () => {
     const p = makePrisma('MEMBER');
     await expect(makeCaller(p).instance.provision({ orgId: ORG_ID, name: 'Managed', env: 'dev' })).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
+
+  it('bootstrapDefault creates then becomes idempotent', async () => {
+    const p = makePrisma('OWNER');
+    process.env.DEFAULT_DAEMON_BASE_URL = 'https://default.daemons.controlai.io';
+    process.env.DEFAULT_DAEMON_BEARER_TOKEN = 'default-token';
+    p.controlaiInstance.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 'existing-default', orgId: ORG_ID, legacy: false });
+    p.controlaiInstance.create.mockResolvedValue({ id: 'created-default', orgId: ORG_ID, legacy: false });
+
+    await expect(makeCaller(p).instance.bootstrapDefault({ orgId: ORG_ID })).resolves.toMatchObject({ id: 'created-default' });
+    await expect(makeCaller(p).instance.bootstrapDefault({ orgId: ORG_ID })).resolves.toMatchObject({ id: 'existing-default' });
+    expect(p.controlaiInstance.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('bootstrapDefault throws on missing env vars', async () => {
+    const p = makePrisma('OWNER');
+    delete process.env.DEFAULT_DAEMON_BASE_URL;
+    process.env.DEFAULT_DAEMON_BEARER_TOKEN = 'x';
+    await expect(makeCaller(p).instance.bootstrapDefault({ orgId: ORG_ID })).rejects.toMatchObject({ code: 'PRECONDITION_FAILED' });
+
+    process.env.DEFAULT_DAEMON_BASE_URL = 'https://default.daemons.controlai.io';
+    delete process.env.DEFAULT_DAEMON_BEARER_TOKEN;
+    await expect(makeCaller(p).instance.bootstrapDefault({ orgId: ORG_ID })).rejects.toMatchObject({ code: 'PRECONDITION_FAILED' });
+  });
 });

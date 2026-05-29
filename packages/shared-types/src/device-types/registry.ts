@@ -65,6 +65,18 @@ export function validateConnection(input: {
     return { ok: false, code: 'UNKNOWN_DEVICE_TYPE', reason: `Unknown device type in connection: source=${input.sourceId}, target=${input.targetId}` };
   }
 
+  // Canonical pipeline middleware (broker → ingest → tsdb → monitoring) is port-less by schema.
+  // Allow these edges unconditionally — the categories themselves define the topology.
+  const PIPELINE_EDGES = new Set([
+    'broker:ingest',
+    'ingest:tsdb',
+    'tsdb:monitoring',
+    'gateway:broker',
+  ]);
+  if (PIPELINE_EDGES.has(`${source.category}:${target.category}`)) {
+    return { ok: true };
+  }
+
   const outProtocols = sourceOutProtocols(source);
   const targetPort = input.targetPortId ? target.ports.find((p) => p.id === input.targetPortId) : undefined;
   const targetProtocolsAny = target.ports.flatMap((p) => p.acceptsProtocols);

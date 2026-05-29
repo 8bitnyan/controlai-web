@@ -2,6 +2,75 @@
 
 ## Overview
 
+This guide covers **three ways** to attach a daemon to your organization:
+
+1. **Default Daemon (Sandbox)** — Free, shared EC2 instance. Every org auto-receives this at signup. Best for testing, prototyping, and sandbox use. **No provisioning step required; it's automatic.**
+2. **Managed (Auto-Provisioned)** — ControlAI provisions per-org ECS containers on demand. Best for managed-tier customers who want dedicated infrastructure.
+3. **BYO (Bring Your Own)** — You run the daemon on your infrastructure. Best for on-prem, air-gapped, or custom setups.
+
+### Quick Decision
+
+- **Just want to test the pipeline and see synthetic signals?** → You already have the **Default Daemon**. Go to your instances page and start using it.
+- **Want dedicated infrastructure provisioned automatically?** → Use **Managed (auto-provisioned)** — continue reading this guide.
+- **Want to run on your own infrastructure?** → Use **BYO** — see [Instance BYO vs Managed](instance-byo-vs-managed.md).
+
+---
+
+## Default Daemon (Sandbox)
+
+**Audience:** End users (all organizations)  
+**Setup:** Automatic at organization signup  
+**Cost:** Free (operator-managed)  
+**Use case:** Testing, prototyping, sandbox environments
+
+Every ControlAI organization automatically receives a singleton **Default Daemon** instance at signup. This is a shared, multi-tenant EC2 instance (`default.daemons.controlai.io`) that serves as a sandbox environment for all users.
+
+### What It Provides
+
+- **Shared broker** (Mosquitto or EMQX) for your organization's tenant slice
+- **Shared ingest service** consuming from the broker
+- **Shared TimescaleDB** storing telemetry (7-day retention by default)
+- **Synthetic signal generators** (tilt, vibration, crack-encoder, noise-meter, vibrating-wire) for testing without hardware
+- **Mixed real + synthetic nodes** on the same canvas (drag-drop real factory boards + simulated sensors)
+- **Inline telemetry sparklines** showing signals flowing in real-time
+
+### How to Use It
+
+1. **Navigate to Instances:** Go to `/orgs/<orgId>/instances`
+2. **See the default:** A read-only "Sandbox daemon: HEALTHY" status card (no "Create Instance" button)
+3. **Open Canvas:** Go to your project's canvas
+4. **Drag nodes:** Pick device-types (`generic-main-gateway`, `generic-sensor-input`, `generic-tilt-linear`, etc.) from the palette
+5. **Configure:** Edit node config to set synthetic signal rates/ranges, broker kind, TSDB retention
+6. **Apply:** Click "Apply" → preview the diff → confirm → signals appear in sparklines within 10 seconds
+
+### Reset Semantics
+
+Apply idempotently **wipes and reconfigures your organization's tenant slice only** (other orgs untouched). No manual teardown needed — just re-apply the canvas snapshot.
+
+### Limitations
+
+- **Shared infrastructure:** No SLA; subject to maintenance windows.
+- **Shared MQTT broker:** No per-org isolation at the broker level (tenant routing provides isolation).
+- **Limited retention:** Default 7 days TSDB retention (configurable per-site, but no advanced tuning).
+- **Single region:** No failover; if the daemon goes down, sandbox is unavailable until recovered.
+
+### Factory Boards (Unclaimed)
+
+Factory boards ship with firmware pre-flashed to connect to the default daemon's special `factory-qa-unclaimed` tenant. If you receive hardware from the factory:
+
+1. Power on the board — it connects to `default.daemons.controlai.io:factory-qa-unclaimed`.
+2. Check **Admin → Unclaimed Boards** — you'll see it listed with UUID and last-seen time.
+3. Claim it (in a follow-up spec) to move it to your org's tenant and add it to the canvas.
+
+### Further Reading
+
+- [Default Daemon Deployment Guide](default-daemon-deployment.md) — Operator guide for standing up the shared daemon.
+- [Admin: Unclaimed Boards](admin-unclaimed-boards.md) — How to view and manage factory boards.
+
+---
+
+## Managed Provisioning (Auto-Provisioned)
+
 Instance provisioning is the automated process of spinning up a new ControlAI daemon container for your organization. When you provision a managed instance, ControlAI:
 
 1. Creates a daemon running on derived infrastructure
@@ -9,9 +78,9 @@ Instance provisioning is the automated process of spinning up a new ControlAI da
 3. Stores the token encrypted in the database
 4. Makes the instance available to your projects
 
-This feature is designed for **managed-tier customers** who want zero-touch daemon deployment. If you prefer to run daemons on your own infrastructure (on-prem, air-gapped, custom setup), use the **BYO (Bring Your Own)** registration flow instead — see [Instance BYO vs Managed](instance-byo-vs-managed.md).
+This feature is designed for **managed-tier customers** who want zero-touch daemon deployment and dedicated infrastructure. If you prefer to run daemons on your own infrastructure (on-prem, air-gapped, custom setup), use the **BYO (Bring Your Own)** registration flow instead — see [Instance BYO vs Managed](instance-byo-vs-managed.md).
 
-## Prerequisites
+## Prerequisites (Managed Provisioning)
 
 Before provisioning a managed daemon, ensure the following are configured:
 
