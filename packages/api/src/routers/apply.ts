@@ -692,7 +692,13 @@ export const applyRouter = router({
                   if (mint.cert_pem && mint.key_pem) {
                     certPemEnc = encryptToken(mint.cert_pem);
                     keyPemEnc = encryptToken(mint.key_pem);
-                    caPemRaw = mint.ca_pem ?? mint.cert_pem;
+                    // Do NOT silently fall back to cert_pem as the CA — it produces
+                    // a Gateway row where rootCaPem == clientCertPem, which makes
+                    // embedded TLS clients (board firmware) fail server-cert verify.
+                    if (!mint.ca_pem) {
+                      console.warn('[apply.commit] daemon mint missing ca_pem; gateway will be unable to verify server cert', { siteId: boundSite.id });
+                    }
+                    caPemRaw = mint.ca_pem ?? '';
                     await ctx.prisma.site.update({
                       where: { id: boundSite.id },
                       data: { mqttCert: certPemEnc, mqttKey: keyPemEnc },
